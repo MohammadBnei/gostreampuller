@@ -20,7 +20,7 @@ type Config struct {
 	LocalMode    bool   `env:"LOCAL_MODE" default:"false"` // When true, bypasses authentication for local testing
 	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
 	FFMPEGPath   string `env:"FFMPEG_PATH" default:"ffmpeg"`
-	DownloadDir  string `env:"DOWNLOAD_DIR" default:"."` // Directory to store downloaded files
+	DownloadDir  string `env:"DOWNLOAD_DIR" default:"./data"` // Directory to store downloaded files
 }
 
 // New creates a new Config with values from environment variables.

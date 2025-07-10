@@ -41,13 +41,14 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	}
 
 	// Use %(filepath)s to get the final path after yt-dlp's processing
-	outputTemplate := filepath.Join(d.cfg.DownloadDir, "%(title)s.%(ext)s")
+	outputTemplate := filepath.Join(d.cfg.DownloadDir, "%(title)s")
 
 	args := []string{
 		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
 		"--output", outputTemplate,
-		"--restrict-filenames", // Helps with predictable filenames
-		"--no-playlist",        // Assume single video download
+		"--no-progress",
+		"--restrict-filenames",   // Helps with predictable filenames
+		"--no-playlist",          // Assume single video download
 		"--recode-video", format, // Instruct yt-dlp to convert to the desired format
 		url,
 	}
@@ -74,24 +75,21 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	var downloadedFilePath string
 	for _, line := range outputLines {
 		// Look for lines indicating the final destination after all processing
-		if strings.Contains(line, "Destination:") && strings.Contains(line, d.cfg.DownloadDir) {
-			// This regex is a bit fragile, but common for yt-dlp output
-			// Example: `[download] Destination: /path/to/download/My Video.mp4`
-			// Example: `[ExtractAudio] Destination: /path/to/download/My Audio.mp3`
-			parts := strings.Split(line, "Destination:")
-			if len(parts) > 1 {
-				potentialPath := strings.TrimSpace(parts[1])
-				// Ensure it's an absolute path and within our download directory
-				if filepath.IsAbs(potentialPath) && strings.HasPrefix(potentialPath, d.cfg.DownloadDir) {
-					downloadedFilePath = potentialPath
-					break
-				}
-			}
+		if strings.Contains(line, d.cfg.DownloadDir) {
+			downloadedFilePath = line
+			break
 		}
 	}
 
 	if downloadedFilePath == "" {
 		return "", errors.New("could not find downloaded video file path in yt-dlp output")
+	}
+
+	downloadedFilePath = fmt.Sprintf("%s.%s", downloadedFilePath, format)
+
+	_, err = os.Stat(downloadedFilePath)
+	if err != nil {
+		return "", fmt.Errorf("could not find downloaded video file: %w", err)
 	}
 
 	slog.Info(fmt.Sprintf("Video downloaded to: %s", downloadedFilePath))

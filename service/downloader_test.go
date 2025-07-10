@@ -1,17 +1,15 @@
 package service
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"gostreampuller/config"
-
 	"github.com/stretchr/testify/assert"
+
+	"gostreampuller/config"
 )
 
 // createTestConfig creates a config.Config for testing.
@@ -22,11 +20,15 @@ func createTestConfig(t *testing.T, downloadDir string) *config.Config {
 	// This ensures they are cleaned up automatically after the test.
 	t.Setenv("DOWNLOAD_DIR", downloadDir)
 	t.Setenv("LOCAL_MODE", "true") // Bypass auth for tests
+	t.Setenv("DEBUG", "true")
 
 	// Unset YTDLP_PATH and FFMPEG_PATH to ensure config.New() looks in system PATH
 	// or uses its default values.
 	t.Setenv("YTDLP_PATH", "")
 	t.Setenv("FFMPEG_PATH", "")
+
+	t.Setenv("AUTH_USERNAME", "testuser")
+	t.Setenv("AUTH_PASSWORD", "testpass")
 
 	cfg, err := config.New()
 	assert.NoError(t, err, "Failed to create test config")
