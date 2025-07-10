@@ -43,13 +43,13 @@ func createTestConfig(t *testing.T, downloadDir string) *config.Config {
 	return cfg
 }
 
-func TestDownloadVideoToFile(t *testing.T) {
+func TestDownloadVideoToFile_Success(t *testing.T) {
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
-		t.Skipf("Skipping TestDownloadVideoToFile: yt-dlp not found in PATH (%v)", err)
+		t.Skipf("Skipping TestDownloadVideoToFile_Success: yt-dlp not found in PATH (%v)", err)
 	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		t.Skipf("Skipping TestDownloadVideoToFile: ffmpeg not found in PATH (%v)", err)
+		t.Skipf("Skipping TestDownloadVideoToFile_Success: ffmpeg not found in PATH (%v)", err)
 	}
 
 	downloadDir := t.TempDir()
@@ -57,7 +57,6 @@ func TestDownloadVideoToFile(t *testing.T) {
 	downloader := NewDownloader(cfg)
 
 	// Use a known short, public domain video URL for testing
-	// This is a short, public domain video from YouTube
 	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ" // Rick Astley - Never Gonna Give You Up (short version for testing)
 	format := "mp4"
 	resolution := "360" // Use a lower resolution for faster downloads
@@ -95,33 +94,58 @@ func TestDownloadVideoToFile(t *testing.T) {
 	_, err = time.ParseDuration(parts[0] + "ns") // Check if first part is a valid timestamp
 	assert.NoError(t, err, "First part of filename should be a timestamp")
 	assert.True(t, strings.HasSuffix(parts[1], "."+format), "Filename should end with requested format extension")
-
-	// Test with a non-existent URL to simulate yt-dlp failure
-	t.Run("yt-dlp failure", func(t *testing.T) {
-		nonExistentURL := "http://example.com/nonexistent_video_12345"
-		_, _, err = downloader.DownloadVideoToFile(ctx, nonExistentURL, format, resolution, codec)
-		assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
-		assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
-	})
-
-	// Test context cancellation
-	t.Run("context cancellation", func(t *testing.T) {
-		ctxCancel, cancelCancel := context.WithCancel(context.Background())
-		// Cancel immediately
-		cancelCancel()
-		_, _, err := downloader.DownloadVideoToFile(ctxCancel, url, format, resolution, codec)
-		assert.Error(t, err, "Expected error due to context cancellation")
-		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
-	})
 }
 
-func TestDownloadAudioToFile(t *testing.T) {
+func TestDownloadVideoToFile_YTDLPFailure(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestDownloadVideoToFile_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	nonExistentURL := "http://example.com/nonexistent_video_12345"
+	format := "mp4"
+	resolution := "360"
+	codec := "avc1"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, _, err := downloader.DownloadVideoToFile(ctx, nonExistentURL, format, resolution, codec)
+	assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
+	assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
+}
+
+func TestDownloadVideoToFile_ContextCancellation(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestDownloadVideoToFile_ContextCancellation: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+	format := "mp4"
+	resolution := "360"
+	codec := "avc1"
+
+	ctxCancel, cancelCancel := context.WithCancel(context.Background())
+	// Cancel immediately
+	cancelCancel()
+
+	_, _, err := downloader.DownloadVideoToFile(ctxCancel, url, format, resolution, codec)
+	assert.Error(t, err, "Expected error due to context cancellation")
+	assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
+}
+
+func TestDownloadAudioToFile_Success(t *testing.T) {
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
-		t.Skipf("Skipping TestDownloadAudioToFile: yt-dlp not found in PATH (%v)", err)
+		t.Skipf("Skipping TestDownloadAudioToFile_Success: yt-dlp not found in PATH (%v)", err)
 	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		t.Skipf("Skipping TestDownloadAudioToFile: ffmpeg not found in PATH (%v)", err)
+		t.Skipf("Skipping TestDownloadAudioToFile_Success: ffmpeg not found in PATH (%v)", err)
 	}
 
 	downloadDir := t.TempDir()
@@ -166,33 +190,58 @@ func TestDownloadAudioToFile(t *testing.T) {
 	_, err = time.ParseDuration(parts[0] + "ns") // Check if first part is a valid timestamp
 	assert.NoError(t, err, "First part of filename should be a timestamp")
 	assert.True(t, strings.HasSuffix(parts[1], "."+outputFormat), "Filename should end with requested format extension")
-
-	// Test with a non-existent URL to simulate yt-dlp failure
-	t.Run("yt-dlp failure", func(t *testing.T) {
-		nonExistentURL := "http://example.com/nonexistent_audio_12345"
-		_, _, err = downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
-		assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
-		assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
-	})
-
-	// Test context cancellation
-	t.Run("context cancellation", func(t *testing.T) {
-		ctxCancel, cancelCancel := context.WithCancel(context.Background())
-		// Cancel immediately
-		cancelCancel()
-		_, _, err := downloader.DownloadAudioToFile(ctxCancel, url, outputFormat, codec, bitrate)
-		assert.Error(t, err, "Expected error due to context cancellation")
-		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
-	})
 }
 
-func TestStreamVideo(t *testing.T) {
+func TestDownloadAudioToFile_YTDLPFailure(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestDownloadAudioToFile_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	nonExistentURL := "http://example.com/nonexistent_audio_12345"
+	outputFormat := "mp3"
+	codec := "libmp3lame"
+	bitrate := "128k"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, _, err = downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
+	assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
+	assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
+}
+
+func TestDownloadAudioToFile_ContextCancellation(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestDownloadAudioToFile_ContextCancellation: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+	outputFormat := "mp3"
+	codec := "libmp3lame"
+	bitrate := "128k"
+
+	ctxCancel, cancelCancel := context.WithCancel(context.Background())
+	// Cancel immediately
+	cancelCancel()
+
+	_, _, err := downloader.DownloadAudioToFile(ctxCancel, url, outputFormat, codec, bitrate)
+	assert.Error(t, err, "Expected error due to context cancellation")
+	assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
+}
+
+func TestStreamVideo_Success(t *testing.T) {
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
-		t.Skipf("Skipping TestStreamVideo: yt-dlp not found in PATH (%v)", err)
+		t.Skipf("Skipping TestStreamVideo_Success: yt-dlp not found in PATH (%v)", err)
 	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		t.Skipf("Skipping TestStreamVideo: ffmpeg not found in PATH (%v)", err)
+		t.Skipf("Skipping TestStreamVideo_Success: ffmpeg not found in PATH (%v)", err)
 	}
 
 	downloadDir := t.TempDir() // Still needed for config creation, though not used by streaming
@@ -217,33 +266,58 @@ func TestStreamVideo(t *testing.T) {
 	n, err := reader.Read(buf)
 	assert.NoError(t, err, "Failed to read from video stream")
 	assert.True(t, n > 0, "Expected to read some bytes from the stream")
-
-	// Test with yt-dlp failure (e.g., non-existent URL)
-	t.Run("yt-dlp failure", func(t *testing.T) {
-		nonExistentURL := "http://example.com/nonexistent_stream_video_12345"
-		_, err = downloader.StreamVideo(ctx, nonExistentURL, format, resolution, codec)
-		assert.Error(t, err, "Expected error when yt-dlp fails")
-		assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
-	})
-
-	// Test context cancellation
-	t.Run("context cancellation", func(t *testing.T) {
-		ctxCancel, cancelCancel := context.WithCancel(context.Background())
-		// Cancel immediately
-		cancelCancel()
-		_, err := downloader.StreamVideo(ctxCancel, url, format, resolution, codec)
-		assert.Error(t, err, "Expected error due to context cancellation")
-		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
-	})
 }
 
-func TestStreamAudio(t *testing.T) {
+func TestStreamVideo_YTDLPFailure(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestStreamVideo_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	nonExistentURL := "http://example.com/nonexistent_stream_video_12345"
+	format := "mp4"
+	resolution := "360"
+	codec := "avc1"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err := downloader.StreamVideo(ctx, nonExistentURL, format, resolution, codec)
+	assert.Error(t, err, "Expected error when yt-dlp fails")
+	assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
+}
+
+func TestStreamVideo_ContextCancellation(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestStreamVideo_ContextCancellation: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+	format := "mp4"
+	resolution := "360"
+	codec := "avc1"
+
+	ctxCancel, cancelCancel := context.WithCancel(context.Background())
+	// Cancel immediately
+	cancelCancel()
+
+	_, err := downloader.StreamVideo(ctxCancel, url, format, resolution, codec)
+	assert.Error(t, err, "Expected error due to context cancellation")
+	assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
+}
+
+func TestStreamAudio_Success(t *testing.T) {
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
-		t.Skipf("Skipping TestStreamAudio: yt-dlp not found in PATH (%v)", err)
+		t.Skipf("Skipping TestStreamAudio_Success: yt-dlp not found in PATH (%v)", err)
 	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		t.Skipf("Skipping TestStreamAudio: ffmpeg not found in PATH (%v)", err)
+		t.Skipf("Skipping TestStreamAudio_Success: ffmpeg not found in PATH (%v)", err)
 	}
 
 	downloadDir := t.TempDir() // Still needed for config creation, though not used by streaming
@@ -268,24 +342,49 @@ func TestStreamAudio(t *testing.T) {
 	n, err := reader.Read(buf)
 	assert.NoError(t, err, "Failed to read from audio stream")
 	assert.True(t, n > 0, "Expected to read some bytes from the stream")
+}
 
-	// Test with yt-dlp failure (e.g., non-existent URL)
-	t.Run("yt-dlp failure", func(t *testing.T) {
-		nonExistentURL := "http://example.com/nonexistent_stream_audio_12345"
-		_, err = downloader.StreamAudio(ctx, nonExistentURL, outputFormat, codec, bitrate)
-		assert.Error(t, err, "Expected error when yt-dlp fails")
-		assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
-	})
+func TestStreamAudio_YTDLPFailure(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestStreamAudio_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
 
-	// Test context cancellation
-	t.Run("context cancellation", func(t *testing.T) {
-		ctxCancel, cancelCancel := context.WithCancel(context.Background())
-		// Cancel immediately
-		cancelCancel()
-		_, err := downloader.StreamAudio(ctxCancel, url, outputFormat, codec, bitrate)
-		assert.Error(t, err, "Expected error due to context cancellation")
-		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
-	})
+	nonExistentURL := "http://example.com/nonexistent_stream_audio_12345"
+	outputFormat := "mp3"
+	codec := "libmp3lame"
+	bitrate := "128k"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err = downloader.StreamAudio(ctx, nonExistentURL, outputFormat, codec, bitrate)
+	assert.Error(t, err, "Expected error when yt-dlp fails")
+	assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
+}
+
+func TestStreamAudio_ContextCancellation(t *testing.T) {
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		t.Skipf("Skipping TestStreamAudio_ContextCancellation: yt-dlp not found in PATH (%v)", err)
+	}
+	downloadDir := t.TempDir()
+	cfg := createTestConfig(t, downloadDir)
+	downloader := NewDownloader(cfg)
+
+	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+	outputFormat := "mp3"
+	codec := "libmp3lame"
+	bitrate := "128k"
+
+	ctxCancel, cancelCancel := context.WithCancel(context.Background())
+	// Cancel immediately
+	cancelCancel()
+
+	_, err := downloader.StreamAudio(ctxCancel, url, outputFormat, codec, bitrate)
+	assert.Error(t, err, "Expected error due to context cancellation")
+	assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
 }
 
 func TestCommandReadCloserClose(t *testing.T) {
