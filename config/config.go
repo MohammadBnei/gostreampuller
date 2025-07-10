@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"os/exec"
 
 	"github.com/BoRuDar/configuration/v5"
 )
@@ -42,6 +43,14 @@ func New() (*Config, error) {
 		}
 	}
 
+	// Verify yt-dlp and ffmpeg executables
+	if err := checkExecutable(cfg.YTDLPPath, "yt-dlp"); err != nil {
+		return nil, err
+	}
+	if err := checkExecutable(cfg.FFMPEGPath, "ffmpeg"); err != nil {
+		return nil, err
+	}
+
 	// Configure global logger based on debug mode
 	logLevel := slog.LevelInfo
 	if cfg.DebugMode {
@@ -52,4 +61,19 @@ func New() (*Config, error) {
 	slog.SetDefault(logger)
 
 	return cfg, nil
+}
+
+// checkExecutable verifies if an executable exists and is runnable.
+func checkExecutable(path, name string) error {
+	cmd := exec.Command(path, "--version") // Use --version to check if it's runnable
+	if err := cmd.Run(); err != nil {
+		// If the command fails, try to find it in PATH
+		if _, err := exec.LookPath(path); err != nil {
+			return fmt.Errorf("executable '%s' not found or not runnable at '%s': %w", name, path, err)
+		}
+		// If found in PATH but still not runnable with --version, it's a deeper issue
+		return fmt.Errorf("executable '%s' found at '%s' but not runnable: %w", name, path, err)
+	}
+	slog.Info(fmt.Sprintf("Found %s executable at %s", name, path))
+	return nil
 }
