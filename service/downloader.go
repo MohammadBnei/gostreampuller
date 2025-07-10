@@ -40,13 +40,15 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 		codec = "avc1"
 	}
 
+	// Use %(filepath)s to get the final path after yt-dlp's processing
 	outputTemplate := filepath.Join(d.cfg.DownloadDir, "%(title)s.%(ext)s")
 
 	args := []string{
-		"--format", fmt.Sprintf("bestvideo[ext=%s][height<=%s]+bestaudio/best[ext=%s][height<=%s]/best", format, resolution, format, resolution),
+		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
 		"--output", outputTemplate,
 		"--restrict-filenames", // Helps with predictable filenames
 		"--no-playlist",        // Assume single video download
+		"--recode-video", format, // Instruct yt-dlp to convert to the desired format
 		url,
 	}
 
@@ -63,19 +65,28 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 		return "", fmt.Errorf("yt-dlp video download failed: %w, stderr: %s", err, stderrBuf.String())
 	}
 
-	// Parse stdout to find the downloaded filename
+	// Parse stdout to find the downloaded filename using %(filepath)s
+	// yt-dlp prints the final filepath when using --print filepath
+	// However, when not using --print, it's usually in the last few lines of output.
+	// A more robust way is to use --print filepath and capture that specific output.
+	// For now, let's try to parse the "Destination" line which is usually reliable.
 	outputLines := strings.Split(stdoutBuf.String(), "\n")
 	var downloadedFilePath string
 	for _, line := range outputLines {
-		if strings.HasPrefix(line, "[download] Destination:") {
-			// Extract the path after "Destination: "
-			downloadedFilePath = strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
-			// yt-dlp might output a relative path or an absolute path.
-			// Ensure it's an absolute path relative to the download directory.
-			if !filepath.IsAbs(downloadedFilePath) {
-				downloadedFilePath = filepath.Join(d.cfg.DownloadDir, downloadedFilePath)
+		// Look for lines indicating the final destination after all processing
+		if strings.Contains(line, "Destination:") && strings.Contains(line, d.cfg.DownloadDir) {
+			// This regex is a bit fragile, but common for yt-dlp output
+			// Example: `[download] Destination: /path/to/download/My Video.mp4`
+			// Example: `[ExtractAudio] Destination: /path/to/download/My Audio.mp3`
+			parts := strings.Split(line, "Destination:")
+			if len(parts) > 1 {
+				potentialPath := strings.TrimSpace(parts[1])
+				// Ensure it's an absolute path and within our download directory
+				if filepath.IsAbs(potentialPath) && strings.HasPrefix(potentialPath, d.cfg.DownloadDir) {
+					downloadedFilePath = potentialPath
+					break
+				}
 			}
-			break
 		}
 	}
 
@@ -135,13 +146,15 @@ func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec 
 		// Look for the line indicating the final file.
 		// Example: `[ExtractAudio] Destination: My Audio Title.mp3`
 		// Or `[ffmpeg] Destination: My Audio Title.mp3`
-		if strings.HasPrefix(line, "[ExtractAudio] Destination:") || strings.HasPrefix(line, "[ffmpeg] Destination:") {
-			downloadedFilePath = strings.TrimSpace(strings.TrimPrefix(line, "[ExtractAudio] Destination:"))
-			downloadedFilePath = strings.TrimSpace(strings.TrimPrefix(downloadedFilePath, "[ffmpeg] Destination:"))
-			if !filepath.IsAbs(downloadedFilePath) {
-				downloadedFilePath = filepath.Join(d.cfg.DownloadDir, downloadedFilePath)
+		if strings.Contains(line, "Destination:") && strings.Contains(line, d.cfg.DownloadDir) {
+			parts := strings.Split(line, "Destination:")
+			if len(parts) > 1 {
+				potentialPath := strings.TrimSpace(parts[1])
+				if filepath.IsAbs(potentialPath) && strings.HasPrefix(potentialPath, d.cfg.DownloadDir) {
+					downloadedFilePath = potentialPath
+					break
+				}
 			}
-			break
 		}
 	}
 
