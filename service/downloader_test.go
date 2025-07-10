@@ -44,6 +44,7 @@ func createTestConfig(t *testing.T, downloadDir string) *config.Config {
 }
 
 func TestDownloadVideoToFile_Success(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestDownloadVideoToFile_Success: yt-dlp not found in PATH (%v)", err)
@@ -97,6 +98,7 @@ func TestDownloadVideoToFile_Success(t *testing.T) {
 }
 
 func TestDownloadVideoToFile_YTDLPFailure(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestDownloadVideoToFile_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
@@ -118,6 +120,7 @@ func TestDownloadVideoToFile_YTDLPFailure(t *testing.T) {
 }
 
 func TestDownloadVideoToFile_ContextCancellation(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestDownloadVideoToFile_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
@@ -140,6 +143,7 @@ func TestDownloadVideoToFile_ContextCancellation(t *testing.T) {
 }
 
 func TestDownloadAudioToFile_Success(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestDownloadAudioToFile_Success: yt-dlp not found in PATH (%v)", err)
@@ -193,6 +197,7 @@ func TestDownloadAudioToFile_Success(t *testing.T) {
 }
 
 func TestDownloadAudioToFile_YTDLPFailure(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestDownloadAudioToFile_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
@@ -214,6 +219,7 @@ func TestDownloadAudioToFile_YTDLPFailure(t *testing.T) {
 }
 
 func TestDownloadAudioToFile_ContextCancellation(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestDownloadAudioToFile_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
@@ -236,6 +242,7 @@ func TestDownloadAudioToFile_ContextCancellation(t *testing.T) {
 }
 
 func TestStreamVideo_Success(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestStreamVideo_Success: yt-dlp not found in PATH (%v)", err)
@@ -269,6 +276,7 @@ func TestStreamVideo_Success(t *testing.T) {
 }
 
 func TestStreamVideo_YTDLPFailure(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestStreamVideo_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
@@ -301,6 +309,7 @@ func TestStreamVideo_YTDLPFailure(t *testing.T) {
 }
 
 func TestStreamVideo_ContextCancellation(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestStreamVideo_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
@@ -332,6 +341,7 @@ func TestStreamVideo_ContextCancellation(t *testing.T) {
 }
 
 func TestStreamAudio_Success(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestStreamAudio_Success: yt-dlp not found in PATH (%v)", err)
@@ -365,6 +375,7 @@ func TestStreamAudio_Success(t *testing.T) {
 }
 
 func TestStreamAudio_YTDLPFailure(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestStreamAudio_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
@@ -397,6 +408,7 @@ func TestStreamAudio_YTDLPFailure(t *testing.T) {
 }
 
 func TestStreamAudio_ContextCancellation(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
 		t.Skipf("Skipping TestStreamAudio_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
@@ -428,6 +440,7 @@ func TestStreamAudio_ContextCancellation(t *testing.T) {
 }
 
 func TestCommandReadCloserClose(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	// Create a dummy command that just exits
 	cmd := exec.Command("bash", "-c", "echo 'test'")
 	stdout, err := cmd.StdoutPipe()
@@ -463,6 +476,7 @@ func TestCommandReadCloserClose(t *testing.T) {
 }
 
 func TestPipedCommandReadCloserClose(t *testing.T) {
+	t.Parallel() // Enable parallel execution for this test
 	// This test is for a scenario that is no longer directly used in StreamVideo/Audio
 	// but is kept for completeness of the helper struct.
 	// Create dummy commands that just exit
