@@ -15,34 +15,6 @@ import (
 	"gostreampuller/config"
 )
 
-// createTestConfig creates a config.Config for testing.
-// It ensures that real yt-dlp and ffmpeg executables are used if available in PATH,
-// or relies on the system's default behavior for finding them.
-func createTestConfig(t *testing.T, downloadDir string) *config.Config {
-	// Use t.Setenv to manage environment variables for the test's duration.
-	// This ensures they are cleaned up automatically after the test.
-	t.Setenv("DOWNLOAD_DIR", downloadDir)
-	t.Setenv("LOCAL_MODE", "true") // Bypass auth for tests
-	t.Setenv("DEBUG", "true")
-
-	// Unset YTDLP_PATH and FFMPEG_PATH to ensure config.New() looks in system PATH
-	// or uses its default values.
-	t.Setenv("YTDLP_PATH", "")
-	t.Setenv("FFMPEG_PATH", "")
-
-	t.Setenv("AUTH_USERNAME", "testuser")
-	t.Setenv("AUTH_PASSWORD", "testpass")
-
-	cfg, err := config.New()
-	assert.NoError(t, err, "Failed to create test config")
-
-	// Verify that yt-dlp and ffmpeg paths are set by config.New (either default or found in PATH)
-	assert.NotEmpty(t, cfg.YTDLPPath, "YTDLPPath should not be empty")
-	assert.NotEmpty(t, cfg.FFMPEGPath, "FFMPEGPath should not be empty")
-
-	return cfg
-}
-
 func TestDownloadVideoToFile_Success(t *testing.T) {
 	// Skip this test if yt-dlp or ffmpeg are not found in PATH
 	if _, err := exec.LookPath("yt-dlp"); err != nil {
@@ -208,7 +180,7 @@ func TestDownloadAudioToFile_YTDLPFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, _, err = downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
+	_, _, err := downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
 	assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
 	assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
 }
@@ -360,7 +332,7 @@ func TestStreamAudio_YTDLPFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, err = downloader.StreamAudio(ctx, nonExistentURL, outputFormat, codec, bitrate)
+	_, err := downloader.StreamAudio(ctx, nonExistentURL, outputFormat, codec, bitrate)
 	assert.Error(t, err, "Expected error when yt-dlp fails")
 	assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
 }
@@ -500,4 +472,32 @@ func TestPipedCommandReadCloserClose(t *testing.T) {
 	err = pcrcFailSecondary.Close()
 	assert.Error(t, err, "Expected error when secondary command fails")
 	assert.Contains(t, err.Error(), "secondary command exited with error", "Expected secondary command exit error message")
+}
+
+// createTestConfig creates a config.Config for testing.
+// It ensures that real yt-dlp and ffmpeg executables are used if available in PATH,
+// or relies on the system's default behavior for finding them.
+func createTestConfig(t *testing.T, downloadDir string) *config.Config {
+	// Use t.Setenv to manage environment variables for the test's duration.
+	// This ensures they are cleaned up automatically after the test.
+	t.Setenv("DOWNLOAD_DIR", downloadDir)
+	t.Setenv("LOCAL_MODE", "true") // Bypass auth for tests
+	t.Setenv("DEBUG", "true")
+
+	// Unset YTDLP_PATH and FFMPEG_PATH to ensure config.New() looks in system PATH
+	// or uses its default values.
+	t.Setenv("YTDLP_PATH", "")
+	t.Setenv("FFMPEG_PATH", "")
+
+	t.Setenv("AUTH_USERNAME", "testuser")
+	t.Setenv("AUTH_PASSWORD", "testpass")
+
+	cfg, err := config.New()
+	assert.NoError(t, err, "Failed to create test config")
+
+	// Verify that yt-dlp and ffmpeg paths are set by config.New (either default or found in PATH)
+	assert.NotEmpty(t, cfg.YTDLPPath, "YTDLPPath should not be empty")
+	assert.NotEmpty(t, cfg.FFMPEGPath, "FFMPEGPath should not be empty")
+
+	return cfg
 }

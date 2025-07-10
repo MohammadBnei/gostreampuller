@@ -210,9 +210,7 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 	// This tells yt-dlp to select the best video/audio and then recode it to the desired format.
 	ytDLPArgs := []string{
 		"--downloader", "ffmpeg",
-		"--downloader-args", fmt.Sprintf("ffmpeg_i:-c:v %s", codec), // Pass video codec to ffmpeg
 		"--format", fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best", resolution),
-		"--recode-video", format,
 		"-o", "-", // Output to stdout
 		url,
 	}
