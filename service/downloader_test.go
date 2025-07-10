@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -54,14 +56,27 @@ func TestDownloadVideoToFile(t *testing.T) {
 	downloader := NewDownloader(cfg)
 
 	// Use a known short, public domain video URL for testing
+	// This is a short, public domain video from YouTube
 	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ" // Rick Astley - Never Gonna Give You Up (short version for testing)
 	format := "mp4"
 	resolution := "360" // Use a lower resolution for faster downloads
 	codec := "avc1"     // Common video codec
 
-	filePath, err := downloader.DownloadVideoToFile(url, format, resolution, codec)
+	filePath, videoInfo, err := downloader.DownloadVideoToFile(url, format, resolution, codec)
 	assert.NoError(t, err, "DownloadVideoToFile should not fail on success")
 	assert.NotEmpty(t, filePath, "Returned file path should not be empty")
+	assert.NotNil(t, videoInfo, "Returned VideoInfo should not be nil")
+
+	// Verify VideoInfo content (these values are specific to the test URL)
+	assert.Equal(t, "dQw4w9WgXcQ", videoInfo.ID)
+	assert.Equal(t, "Rick Astley - Never Gonna Give You Up (Official Music Video)", videoInfo.Title)
+	assert.Equal(t, "mp4", videoInfo.Ext) // yt-dlp's default best video ext for this
+	assert.Contains(t, videoInfo.OriginalURL, "youtube.com/watch?v=dQw4w9WgXcQ")
+	assert.Contains(t, videoInfo.WebpageURL, "youtube.com/watch?v=dQw4w9WgXcQ")
+	assert.True(t, videoInfo.Duration > 0, "Duration should be greater than 0")
+	assert.NotEmpty(t, videoInfo.Uploader, "Uploader should not be empty")
+	assert.NotEmpty(t, videoInfo.UploadDate, "UploadDate should not be empty")
+	assert.NotEmpty(t, videoInfo.Thumbnail, "Thumbnail should not be empty")
 
 	// Verify file exists and is not empty
 	fileInfo, err := os.Stat(filePath)
@@ -71,17 +86,21 @@ func TestDownloadVideoToFile(t *testing.T) {
 	// Verify file is in the correct directory
 	assert.Equal(t, downloadDir, filepath.Dir(filePath), "File downloaded to wrong directory")
 
+	// Verify filename format (timestamp-id.ext)
+	filename := filepath.Base(filePath)
+	parts := strings.Split(filename, "-")
+	assert.Len(t, parts, 2, "Filename should have two parts separated by '-'")
+	_, err = time.ParseDuration(parts[0] + "ns") // Check if first part is a valid timestamp
+	assert.NoError(t, err, "First part of filename should be a timestamp")
+	assert.True(t, strings.HasSuffix(parts[1], "."+format), "Filename should end with requested format extension")
+
 	// Test with a non-existent URL to simulate yt-dlp failure
 	t.Run("yt-dlp failure", func(t *testing.T) {
 		nonExistentURL := "http://example.com/nonexistent_video_12345"
-		_, err = downloader.DownloadVideoToFile(nonExistentURL, format, resolution, codec)
+		_, _, err = downloader.DownloadVideoToFile(nonExistentURL, format, resolution, codec)
 		assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
-		assert.Contains(t, err.Error(), "yt-dlp video download failed", "Expected yt-dlp failure error message")
+		assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
 	})
-
-	// Note: Simulating ffmpeg conversion failure for a file download is complex
-	// without mocking or specific test files that cause ffmpeg to fail.
-	// This test case is removed for now as it relied on mock behavior.
 }
 
 func TestDownloadAudioToFile(t *testing.T) {
@@ -103,9 +122,21 @@ func TestDownloadAudioToFile(t *testing.T) {
 	codec := "libmp3lame"
 	bitrate := "128k"
 
-	filePath, err := downloader.DownloadAudioToFile(url, outputFormat, codec, bitrate)
+	filePath, videoInfo, err := downloader.DownloadAudioToFile(url, outputFormat, codec, bitrate)
 	assert.NoError(t, err, "DownloadAudioToFile should not fail on success")
 	assert.NotEmpty(t, filePath, "Returned file path should not be empty")
+	assert.NotNil(t, videoInfo, "Returned VideoInfo should not be nil")
+
+	// Verify VideoInfo content (these values are specific to the test URL)
+	assert.Equal(t, "dQw4w9WgXcQ", videoInfo.ID)
+	assert.Equal(t, "Rick Astley - Never Gonna Give You Up (Official Music Video)", videoInfo.Title)
+	assert.Equal(t, "mp4", videoInfo.Ext) // yt-dlp's default best video ext for this
+	assert.Contains(t, videoInfo.OriginalURL, "youtube.com/watch?v=dQw4w9WgXcQ")
+	assert.Contains(t, videoInfo.WebpageURL, "youtube.com/watch?v=dQw4w9WgXcQ")
+	assert.True(t, videoInfo.Duration > 0, "Duration should be greater than 0")
+	assert.NotEmpty(t, videoInfo.Uploader, "Uploader should not be empty")
+	assert.NotEmpty(t, videoInfo.UploadDate, "UploadDate should not be empty")
+	assert.NotEmpty(t, videoInfo.Thumbnail, "Thumbnail should not be empty")
 
 	// Verify file exists and is not empty
 	fileInfo, err := os.Stat(filePath)
@@ -115,17 +146,21 @@ func TestDownloadAudioToFile(t *testing.T) {
 	// Verify file is in the correct directory
 	assert.Equal(t, downloadDir, filepath.Dir(filePath), "File downloaded to wrong directory")
 
+	// Verify filename format (timestamp-id.ext)
+	filename := filepath.Base(filePath)
+	parts := strings.Split(filename, "-")
+	assert.Len(t, parts, 2, "Filename should have two parts separated by '-'")
+	_, err = time.ParseDuration(parts[0] + "ns") // Check if first part is a valid timestamp
+	assert.NoError(t, err, "First part of filename should be a timestamp")
+	assert.True(t, strings.HasSuffix(parts[1], "."+outputFormat), "Filename should end with requested format extension")
+
 	// Test with a non-existent URL to simulate yt-dlp failure
 	t.Run("yt-dlp failure", func(t *testing.T) {
 		nonExistentURL := "http://example.com/nonexistent_audio_12345"
-		_, err = downloader.DownloadAudioToFile(nonExistentURL, outputFormat, codec, bitrate)
+		_, _, err = downloader.DownloadAudioToFile(nonExistentURL, outputFormat, codec, bitrate)
 		assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
-		assert.Contains(t, err.Error(), "yt-dlp audio fetch failed", "Expected yt-dlp failure error message")
+		assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
 	})
-
-	// Note: Simulating ffmpeg conversion failure for a file download is complex
-	// without mocking or specific test files that cause ffmpeg to fail.
-	// This test case is removed for now as it relied on mock behavior.
 }
 
 func TestStreamVideo(t *testing.T) {
@@ -164,10 +199,6 @@ func TestStreamVideo(t *testing.T) {
 		assert.Error(t, err, "Expected error when yt-dlp fails")
 		assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
 	})
-
-	// Note: Simulating ffmpeg failure for streaming is complex without specific test cases
-	// that cause ffmpeg to fail during a pipe operation.
-	// This test case is removed for now as it relied on mock behavior.
 }
 
 func TestStreamAudio(t *testing.T) {
@@ -206,10 +237,6 @@ func TestStreamAudio(t *testing.T) {
 		assert.Error(t, err, "Expected error when yt-dlp fails")
 		assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
 	})
-
-	// Note: Simulating ffmpeg failure for streaming is complex without specific test cases
-	// that cause ffmpeg to fail during a pipe operation.
-	// This test case is removed for now as it relied on mock behavior.
 }
 
 func TestCommandReadCloserClose(t *testing.T) {
