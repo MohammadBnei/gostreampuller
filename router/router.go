@@ -10,7 +10,6 @@ import (
 	"gostreampuller/config"
 	"gostreampuller/handler"
 	"gostreampuller/middleware" // Import the middleware package
-	"gostreampuller/service"
 )
 
 // Router handles HTTP routing.
@@ -23,15 +22,10 @@ type Router struct {
 func New(cfg *config.Config) *Router {
 	mux := http.NewServeMux()
 
-	// Create service with retry configuration
-	searchService := service.NewDuckDuckGoService().WithRetryConfig(cfg.MaxRetries, cfg.RetryBackoff)
-
 	// Create handlers
-	searchHandler := handler.NewSearchHandler(cfg, searchService)
 	healthHandler := handler.NewHealthHandler()
 
 	// Register routes
-	mux.HandleFunc("/search", searchHandler.Handle)
 	mux.HandleFunc("/health", healthHandler.Handle)
 
 	// Serve Swagger UI

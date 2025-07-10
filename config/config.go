@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"strconv"
+	"strconv" // Keep strconv for potential future use or if other numeric env vars are added
 )
 
 // Config holds all application configuration.
@@ -14,8 +14,6 @@ type Config struct {
 	AuthPassword string
 	DebugMode    bool
 	LocalMode    bool // When true, bypasses authentication for local testing
-	MaxRetries   int  // Maximum number of retries for search requests
-	RetryBackoff int  // Initial backoff in milliseconds (doubles with each retry)
 }
 
 // New creates a new Config with values from environment variables.
@@ -34,23 +32,6 @@ func New() (*Config, error) {
 
 	if localMode {
 		slog.Warn("Running in LOCAL_MODE - authentication is disabled")
-	}
-
-	// Set default retry values
-	maxRetries := 3
-	retryBackoff := 500 // milliseconds
-
-	// Override with environment variables if provided
-	if maxRetriesStr := os.Getenv("MAX_RETRIES"); maxRetriesStr != "" {
-		if val, err := strconv.Atoi(maxRetriesStr); err == nil {
-			maxRetries = val
-		}
-	}
-
-	if retryBackoffStr := os.Getenv("RETRY_BACKOFF"); retryBackoffStr != "" {
-		if val, err := strconv.Atoi(retryBackoffStr); err == nil && val > 0 {
-			retryBackoff = val
-		}
 	}
 
 	// Only check auth credentials if not in local mode
@@ -82,7 +63,5 @@ func New() (*Config, error) {
 		AuthPassword: password,
 		DebugMode:    debugMode,
 		LocalMode:    localMode,
-		MaxRetries:   maxRetries,
-		RetryBackoff: retryBackoff,
 	}, nil
 }
