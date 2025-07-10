@@ -4,80 +4,52 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	// Keep strconv for potential future use or if other numeric env vars are added
+
+	"github.com/BoRuDar/configuration/v5"
 )
 
 // Config holds all application configuration.
 type Config struct {
-	Port         string
-	AuthUsername string
-	AuthPassword string
-	DebugMode    bool
-	LocalMode    bool // When true, bypasses authentication for local testing
-	YTDLPPath    string // Path to yt-dlp executable
-	FFMPEGPath   string // Path to ffmpeg executable
+	Port         string `env:"PORT" default:"8080"`
+	AuthUsername string `env:"AUTH_USERNAME"`
+	AuthPassword string `env:"AUTH_PASSWORD"`
+	DebugMode    bool   `env:"DEBUG" default:"false"`
+	LocalMode    bool   `env:"LOCAL_MODE" default:"false"` // When true, bypasses authentication for local testing
+	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
+	FFMPEGPath   string `env:"FFMPEG_PATH" default:"ffmpeg"`
 }
 
 // New creates a new Config with values from environment variables.
 // Returns an error if required authentication credentials are missing.
 func New() (*Config, error) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg, err := configuration.FromEnvAndDefault[Config]()
+	if err != nil {
+		return nil, err
 	}
 
-	// Debug mode defaults to false
-	debugMode := os.Getenv("DEBUG") == "true"
-
-	// Local mode defaults to false
-	localMode := os.Getenv("LOCAL_MODE") == "true"
-
-	if localMode {
+	if cfg.LocalMode {
 		slog.Warn("Running in LOCAL_MODE - authentication is disabled")
 	}
 
 	// Only check auth credentials if not in local mode
-	username := os.Getenv("AUTH_USERNAME")
-	password := os.Getenv("AUTH_PASSWORD")
-
-	if !localMode {
-		if username == "" {
+	if !cfg.LocalMode {
+		if cfg.AuthUsername == "" {
 			return nil, errors.New("AUTH_USERNAME environment variable not set")
 		}
 
-		if password == "" {
+		if cfg.AuthPassword == "" {
 			return nil, errors.New("AUTH_PASSWORD environment variable not set")
 		}
 	}
 
-	// YTDLPPath defaults to "yt-dlp"
-	ytDLPPath := os.Getenv("YTDLP_PATH")
-	if ytDLPPath == "" {
-		ytDLPPath = "yt-dlp"
-	}
-
-	// FFMPEGPath defaults to "ffmpeg"
-	ffmpegPath := os.Getenv("FFMPEG_PATH")
-	if ffmpegPath == "" {
-		ffmpegPath = "ffmpeg"
-	}
-
 	// Configure global logger based on debug mode
 	logLevel := slog.LevelInfo
-	if debugMode {
+	if cfg.DebugMode {
 		logLevel = slog.LevelDebug
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
 
-	return &Config{
-		Port:         port,
-		AuthUsername: username,
-		AuthPassword: password,
-		DebugMode:    debugMode,
-		LocalMode:    localMode,
-		YTDLPPath:    ytDLPPath,
-		FFMPEGPath:   ffmpegPath,
-	}, nil
+	return cfg, nil
 }
