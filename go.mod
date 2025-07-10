@@ -1,4 +1,4 @@
-module home-go-api-template
+module gostreampuller
 
 go 1.24
 

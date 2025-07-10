@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"home-go-api-template/duckduckgogo"
+	"gostreampuller/duckduckgogo"
 )
 
 const (

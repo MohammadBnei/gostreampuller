@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"home-go-api-template/config"
-	"home-go-api-template/handler"
-	"home-go-api-template/service"
+	"gostreampuller/config"
+	"gostreampuller/handler"
+	"gostreampuller/service"
 )
 
 // Mock search service for testing.

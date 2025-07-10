@@ -13,8 +13,8 @@ import (
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 
-	"home-go-api-template/config"
-	"home-go-api-template/service"
+	"gostreampuller/config"
+	"gostreampuller/service"
 )
 
 // SearchHandler handles search requests.

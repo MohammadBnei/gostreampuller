@@ -7,10 +7,10 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger" // Import http-swagger
 
-	"home-go-api-template/config"
-	"home-go-api-template/handler"
-	"home-go-api-template/middleware" // Import the middleware package
-	"home-go-api-template/service"
+	"gostreampuller/config"
+	"gostreampuller/handler"
+	"gostreampuller/middleware" // Import the middleware package
+	"gostreampuller/service"
 )
 
 // Router handles HTTP routing.

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: home-go-api-template
+  name: gostreampuller
   annotations:
     secrets.infisical.com/auto-reload: "true"
 spec:
@@ -9,15 +9,15 @@ spec:
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app: home-go-api-template
+      app: gostreampuller
   template:
     metadata:
       labels:
-        app: home-go-api-template
+        app: gostreampuller
     spec:
       containers:
-        - image: mohammaddocker/home-go-api-template
-          name: home-go-api-template
+        - image: mohammaddocker/gostreampuller
+          name: gostreampuller
           ports:
             - containerPort: 3000
           resources:
@@ -29,4 +29,4 @@ spec:
               value: "3000"
           envFrom:
             - secretRef:
-                name: managed-home-go-api-template-secret
+                name: managed-gostreampuller-secret

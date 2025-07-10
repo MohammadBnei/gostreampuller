@@ -4,7 +4,7 @@ GOBUILD=$(GOCMD) build
 GOTEST=$(GOCMD) test
 GOTIDY=$(GOCMD) mod tidy
 GOCLEAN=$(GOCMD) clean
-BINARY_NAME=home-go-api-template
+BINARY_NAME=gostreampuller
 MAIN_PATH=.
 
 ifneq (,$(wildcard ./.env))
@@ -49,10 +49,10 @@ run:
 
 # Docker commands
 docker-build:
-	docker build -t home-go-api-template:latest .
+	docker build -t gostreampuller:latest .
 
 docker-run:
-	docker run -p 8080:8080 home-go-api-template:latest
+	docker run -p 8080:8080 gostreampuller:latest
 
 dev:
 	gowatch

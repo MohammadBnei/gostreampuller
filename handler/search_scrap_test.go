@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"home-go-api-template/config"
-	"home-go-api-template/handler"
-	"home-go-api-template/service"
+	"gostreampuller/config"
+	"gostreampuller/handler"
+	"gostreampuller/service"
 )
 
 // MockSearchServiceWithScraping is a mock implementation of SearchService that supports scraping.

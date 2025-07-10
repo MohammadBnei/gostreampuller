@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"home-go-api-template/config"
+	"gostreampuller/config"
 )
 
 // LoggingMiddleware logs incoming requests and their responses.

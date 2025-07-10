@@ -16,11 +16,11 @@ spec:
             - name: AUTH_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: home-go-api-template-secret
+                  name: gostreampuller-secret
                   key: AUTH_USERNAME
             - name: AUTH_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: home-go-api-template-secret
+                  name: gostreampuller-secret
                   key: AUTH_PASSWORD
       restartPolicy: Never

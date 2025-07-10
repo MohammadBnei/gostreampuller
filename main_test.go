@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"home-go-api-template/config"
+	"gostreampuller/config"
 )
 
 func TestConfigLoading(t *testing.T) {

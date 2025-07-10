@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: home-go-api-template-service
+  name: gostreampuller-service
 spec:
   selector:
-    app: home-go-api-template # Match labels from the deployments
+    app: gostreampuller # Match labels from the deployments
   ports:
     - protocol: TCP
       port: 80
@@ -30,22 +30,22 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: home-go-api-template
+  name: gostreampuller
 spec:
   entryPoints:
     - websecure
     - web
   routes:
     - kind: Rule
-      match: Host(`api.bnei.dev`) && PathPrefix(`/home-go-api-template`)
+      match: Host(`api.bnei.dev`) && PathPrefix(`/gostreampuller`)
       services:
         - kind: Service
-          name: home-go-api-template-service
-          namespace: home-go-api-template
+          name: gostreampuller-service
+          namespace: gostreampuller
           port: 80
       middlewares:
         - name: path-stripper
-          namespace: home-go-api-template
+          namespace: gostreampuller
   tls:
     secretName: api-certificate-secret
 
@@ -58,4 +58,4 @@ metadata:
 spec:
   stripPrefix:
     prefixes:
-      - /home-go-api-template
+      - /gostreampuller

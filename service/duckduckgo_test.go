@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"home-go-api-template/duckduckgogo"
+	"gostreampuller/duckduckgogo"
 
 	"golang.org/x/time/rate"
 )

@@ -12,7 +12,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"home-go-api-template/util"
+	"gostreampuller/util"
 )
 
 type SearchClient interface {

@@ -20,7 +20,7 @@ formatters:
 
 
       local-prefixes:
-        - home-go-api-template
+        - gostreampuller
     golines:
 
 

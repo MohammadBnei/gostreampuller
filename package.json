@@ -1,10 +1,10 @@
 {
-  "name": "home-go-api-template",
+  "name": "gostreampuller",
   "version": "0.0.1",
   "description": "Microservice used to manage words.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MohammadBnei/home-go-api-template"
+    "url": "https://github.com/MohammadBnei/gostreampuller"
   },
   "keywords": [
     "go"

@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"home-go-api-template/config"
-	_ "home-go-api-template/docs" // Import generated docs
-	"home-go-api-template/router"
+	"gostreampuller/config"
+	_ "gostreampuller/docs" // Import generated docs
+	"gostreampuller/router"
 )
 
 //	@title			DuckDuckGo Search API

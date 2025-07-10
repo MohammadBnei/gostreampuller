@@ -78,13 +78,13 @@ Build and run with Docker:
 
 ```bash
 # Build the image
-docker build -t home-go-api-template .
+docker build -t gostreampuller .
 
 # Run the container
 docker run -p 8080:8080 \
   -e AUTH_USERNAME=user \
   -e AUTH_PASSWORD=pass \
-  home-go-api-template
+  gostreampuller
 ```
 
 ## Kubernetes Deployment
