@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -44,10 +45,10 @@ func New() (*Config, error) {
 	}
 
 	// Verify yt-dlp and ffmpeg executables
-	if err := checkExecutable(cfg.YTDLPPath, "yt-dlp"); err != nil {
+	if err := checkExecutable(cfg.YTDLPPath, "yt-dlp", "--version"); err != nil {
 		return nil, err
 	}
-	if err := checkExecutable(cfg.FFMPEGPath, "ffmpeg"); err != nil {
+	if err := checkExecutable(cfg.FFMPEGPath, "ffmpeg", "-version"); err != nil {
 		return nil, err
 	}
 
@@ -64,8 +65,8 @@ func New() (*Config, error) {
 }
 
 // checkExecutable verifies if an executable exists and is runnable.
-func checkExecutable(path, name string) error {
-	cmd := exec.Command(path, "--version") // Use --version to check if it's runnable
+func checkExecutable(path, name, versionCmd string) error {
+	cmd := exec.Command(path, versionCmd) // Use --version to check if it's runnable
 	if err := cmd.Run(); err != nil {
 		// If the command fails, try to find it in PATH
 		if _, err := exec.LookPath(path); err != nil {
