@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLocalMode(t *testing.T) {
@@ -34,32 +36,20 @@ func TestLocalMode(t *testing.T) {
 	// Test when LOCAL_MODE is not set
 	os.Unsetenv("LOCAL_MODE")
 	cfg, err := New()
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if cfg.LocalMode {
-		t.Error("LocalMode should be false when LOCAL_MODE env var is not set")
-	}
+	assert.NoError(t, err)
+	assert.False(t, cfg.LocalMode, "LocalMode should be false when LOCAL_MODE env var is not set")
 
 	// Test when LOCAL_MODE is set to true
 	os.Setenv("LOCAL_MODE", "true")
 	cfg, err = New()
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if !cfg.LocalMode {
-		t.Error("LocalMode should be true when LOCAL_MODE env var is set to 'true'")
-	}
+	assert.NoError(t, err)
+	assert.True(t, cfg.LocalMode, "LocalMode should be true when LOCAL_MODE env var is set to 'true'")
 
 	// Test when LOCAL_MODE is set to something else
 	os.Setenv("LOCAL_MODE", "yes")
 	cfg, err = New()
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if cfg.LocalMode {
-		t.Error("LocalMode should be false when LOCAL_MODE env var is not 'true'")
-	}
+	assert.NoError(t, err)
+	assert.False(t, cfg.LocalMode, "LocalMode should be false when LOCAL_MODE env var is not 'true'")
 }
 
 func TestAuthCredentials(t *testing.T) {
@@ -75,29 +65,23 @@ func TestAuthCredentials(t *testing.T) {
 	t.Setenv("AUTH_PASSWORD", "testpass")
 
 	_, err := New()
-	if err == nil {
-		t.Error("Expected error for missing username in non-local mode")
-	}
+	assert.Error(t, err, "Expected error for missing username in non-local mode")
+	assert.Contains(t, err.Error(), "AUTH_USERNAME environment variable not set")
 
 	// Test missing password in non-local mode
 	t.Setenv("AUTH_USERNAME", "testuser")
 	t.Setenv("AUTH_PASSWORD", "")
 
 	_, err = New()
-	if err == nil {
-		t.Error("Expected error for missing password in non-local mode")
-	}
+	assert.Error(t, err, "Expected error for missing password in non-local mode")
+	assert.Contains(t, err.Error(), "AUTH_PASSWORD environment variable not set")
 
 	// Test local mode with missing credentials (should not error)
 	t.Setenv("LOCAL_MODE", "true")
 
 	cfg, err := New()
-	if err != nil {
-		t.Errorf("Unexpected error in local mode: %v", err)
-	}
-	if !cfg.LocalMode {
-		t.Error("LocalMode should be true")
-	}
+	assert.NoError(t, err, "Unexpected error in local mode")
+	assert.True(t, cfg.LocalMode, "LocalMode should be true")
 }
 
 func TestYTDLPAndFFMPEGPaths(t *testing.T) {
@@ -126,17 +110,10 @@ func TestYTDLPAndFFMPEGPaths(t *testing.T) {
 		os.Unsetenv("FFMPEG_PATH")
 
 		cfg, err := New()
-		if err != nil {
-			t.Fatalf("Failed to create config: %v", err)
-		}
+		assert.NoError(t, err, "Failed to create config with default paths")
 
-		if cfg.YTDLPPath != "yt-dlp" {
-			t.Errorf("Expected default YTDLPPath to be 'yt-dlp', got '%s'", cfg.YTDLPPath)
-		}
-
-		if cfg.FFMPEGPath != "ffmpeg" {
-			t.Errorf("Expected default FFMPEGPath to be 'ffmpeg', got '%s'", cfg.FFMPEGPath)
-		}
+		assert.Equal(t, "yt-dlp", cfg.YTDLPPath, "Expected default YTDLPPath to be 'yt-dlp'")
+		assert.Equal(t, "ffmpeg", cfg.FFMPEGPath, "Expected default FFMPEGPath to be 'ffmpeg'")
 	})
 
 	// Test custom values
@@ -145,17 +122,10 @@ func TestYTDLPAndFFMPEGPaths(t *testing.T) {
 		os.Setenv("FFMPEG_PATH", "/opt/ffmpeg/bin/ffmpeg-custom")
 
 		cfg, err := New()
-		if err != nil {
-			t.Fatalf("Failed to create config: %v", err)
-		}
+		assert.NoError(t, err, "Failed to create config with custom paths")
 
-		if cfg.YTDLPPath != "/usr/local/bin/yt-dlp-custom" {
-			t.Errorf("Expected YTDLPPath to be '/usr/local/bin/yt-dlp-custom', got '%s'", cfg.YTDLPPath)
-		}
-
-		if cfg.FFMPEGPath != "/opt/ffmpeg/bin/ffmpeg-custom" {
-			t.Errorf("Expected FFMPEGPath to be '/opt/ffmpeg/bin/ffmpeg-custom', got '%s'", cfg.FFMPEGPath)
-		}
+		assert.Equal(t, "/usr/local/bin/yt-dlp-custom", cfg.YTDLPPath, "Expected YTDLPPath to be '/usr/local/bin/yt-dlp-custom'")
+		assert.Equal(t, "/opt/ffmpeg/bin/ffmpeg-custom", cfg.FFMPEGPath, "Expected FFMPEGPath to be '/opt/ffmpeg/bin/ffmpeg-custom'")
 	})
 }
 
@@ -182,18 +152,15 @@ func TestDownloadDir(t *testing.T) {
 	t.Run("DefaultDownloadDir", func(t *testing.T) {
 		os.Unsetenv("DOWNLOAD_DIR") // Ensure default is used
 		cfg, err := New()
-		if err != nil {
-			t.Fatalf("Failed to create config with default download dir: %v", err)
-		}
-		expectedDir, _ := filepath.Abs(".")
-		if cfg.DownloadDir != expectedDir {
-			t.Errorf("Expected default DownloadDir to be '%s', got '%s'", expectedDir, cfg.DownloadDir)
-		}
+		assert.NoError(t, err, "Failed to create config with default download dir")
+
+		expectedDir, _ := filepath.Abs("./data") // Updated default
+		assert.Equal(t, expectedDir, cfg.DownloadDir, "Expected default DownloadDir to be './data'")
+
 		// Verify it's writable
 		testFile := filepath.Join(cfg.DownloadDir, ".test_write_default")
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-			t.Errorf("Default download directory '%s' is not writable: %v", cfg.DownloadDir, err)
-		}
+		err = os.WriteFile(testFile, []byte("test"), 0644)
+		assert.NoError(t, err, "Default download directory should be writable")
 		os.Remove(testFile)
 	})
 
@@ -202,27 +169,19 @@ func TestDownloadDir(t *testing.T) {
 		os.Setenv("DOWNLOAD_DIR", tempDir)
 
 		cfg, err := New()
-		if err != nil {
-			t.Fatalf("Failed to create config with custom download dir: %v", err)
-		}
+		assert.NoError(t, err, "Failed to create config with custom download dir")
 
 		expectedDir, _ := filepath.Abs(tempDir)
-		if cfg.DownloadDir != expectedDir {
-			t.Errorf("Expected DownloadDir to be '%s', got '%s'", expectedDir, cfg.DownloadDir)
-		}
+		assert.Equal(t, expectedDir, cfg.DownloadDir, "Expected DownloadDir to be custom temp directory")
 
 		// Verify the directory was created and is writable
 		info, err := os.Stat(cfg.DownloadDir)
-		if err != nil {
-			t.Fatalf("Custom download directory '%s' does not exist: %v", cfg.DownloadDir, err)
-		}
-		if !info.IsDir() {
-			t.Errorf("Custom download path '%s' is not a directory", cfg.DownloadDir)
-		}
+		assert.NoError(t, err, "Custom download directory should exist")
+		assert.True(t, info.IsDir(), "Custom download path should be a directory")
+
 		testFile := filepath.Join(cfg.DownloadDir, ".test_write_custom")
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-			t.Errorf("Custom download directory '%s' is not writable: %v", cfg.DownloadDir, err)
-		}
+		err = os.WriteFile(testFile, []byte("test"), 0644)
+		assert.NoError(t, err, "Custom download directory should be writable")
 		os.Remove(testFile)
 	})
 
@@ -230,8 +189,7 @@ func TestDownloadDir(t *testing.T) {
 		// Set a path that is likely not writable or creatable
 		os.Setenv("DOWNLOAD_DIR", "/root/nonexistent/path/that/should/fail") // On most systems, /root is not writable by non-root
 		_, err := New()
-		if err == nil {
-			t.Error("Expected an error for an invalid/unwritable download directory, but got none")
-		}
+		assert.Error(t, err, "Expected an error for an invalid/unwritable download directory")
+		assert.Contains(t, err.Error(), "failed to create download directory", "Error message should indicate directory creation/write issue")
 	})
 }
