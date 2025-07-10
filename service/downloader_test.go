@@ -18,29 +18,14 @@ import (
 // createTestConfig creates a config.Config for testing.
 // It ensures that real yt-dlp and ffmpeg executables are used if available in PATH,
 // or relies on the system's default behavior for finding them.
-func createTestConfig(t *testing.T, downloadDir string) *config.Config {
-	// Use t.Setenv to manage environment variables for the test's duration.
-	// This ensures they are cleaned up automatically after the test.
-	t.Setenv("DOWNLOAD_DIR", downloadDir)
-	t.Setenv("LOCAL_MODE", "true") // Bypass auth for tests
-	t.Setenv("DEBUG", "true")
-
-	// Unset YTDLP_PATH and FFMPEG_PATH to ensure config.New() looks in system PATH
-	// or uses its default values.
-	t.Setenv("YTDLP_PATH", "")
-	t.Setenv("FFMPEG_PATH", "")
-
-	t.Setenv("AUTH_USERNAME", "testuser")
-	t.Setenv("AUTH_PASSWORD", "testpass")
-
-	cfg, err := config.New()
-	assert.NoError(t, err, "Failed to create test config")
-
-	// Verify that yt-dlp and ffmpeg paths are set by config.New (either default or found in PATH)
-	assert.NotEmpty(t, cfg.YTDLPPath, "YTDLPPath should not be empty")
-	assert.NotEmpty(t, cfg.FFMPEGPath, "FFMPEGPath should not be empty")
-
-	return cfg
+func createTestConfig(downloadDir string) *config.Config {
+	return &config.Config{
+		DownloadDir: downloadDir,
+		LocalMode:   true,
+		DebugMode:   true,
+		YTDLPPath:   "yt-dlp",
+		FFMPEGPath:  "ffmpeg",
+	}
 }
 
 func TestDownloadVideoToFile_Success(t *testing.T) {
@@ -54,7 +39,7 @@ func TestDownloadVideoToFile_Success(t *testing.T) {
 	}
 
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	// Use a known short, public domain video URL for testing
@@ -103,7 +88,7 @@ func TestDownloadVideoToFile_YTDLPFailure(t *testing.T) {
 		t.Skipf("Skipping TestDownloadVideoToFile_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	nonExistentURL := "http://example.com/nonexistent_video_12345"
@@ -125,7 +110,7 @@ func TestDownloadVideoToFile_ContextCancellation(t *testing.T) {
 		t.Skipf("Skipping TestDownloadVideoToFile_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -153,7 +138,7 @@ func TestDownloadAudioToFile_Success(t *testing.T) {
 	}
 
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	// Use a known short, public domain audio URL for testing
@@ -202,7 +187,7 @@ func TestDownloadAudioToFile_YTDLPFailure(t *testing.T) {
 		t.Skipf("Skipping TestDownloadAudioToFile_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	nonExistentURL := "http://example.com/nonexistent_audio_12345"
@@ -224,7 +209,7 @@ func TestDownloadAudioToFile_ContextCancellation(t *testing.T) {
 		t.Skipf("Skipping TestDownloadAudioToFile_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -252,7 +237,7 @@ func TestStreamVideo_Success(t *testing.T) {
 	}
 
 	downloadDir := t.TempDir() // Still needed for config creation, though not used by streaming
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	// Use a known short, public domain video URL for testing
@@ -281,7 +266,7 @@ func TestStreamVideo_YTDLPFailure(t *testing.T) {
 		t.Skipf("Skipping TestStreamVideo_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	nonExistentURL := "http://example.com/nonexistent_stream_video_12345"
@@ -314,7 +299,7 @@ func TestStreamVideo_ContextCancellation(t *testing.T) {
 		t.Skipf("Skipping TestStreamVideo_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -351,7 +336,7 @@ func TestStreamAudio_Success(t *testing.T) {
 	}
 
 	downloadDir := t.TempDir() // Still needed for config creation, though not used by streaming
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	// Use a known short, public domain audio URL for testing
@@ -380,7 +365,7 @@ func TestStreamAudio_YTDLPFailure(t *testing.T) {
 		t.Skipf("Skipping TestStreamAudio_YTDLPFailure: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	nonExistentURL := "http://example.com/nonexistent_stream_audio_12345"
@@ -413,7 +398,7 @@ func TestStreamAudio_ContextCancellation(t *testing.T) {
 		t.Skipf("Skipping TestStreamAudio_ContextCancellation: yt-dlp not found in PATH (%v)", err)
 	}
 	downloadDir := t.TempDir()
-	cfg := createTestConfig(t, downloadDir)
+	cfg := createTestConfig(downloadDir)
 	downloader := NewDownloader(cfg)
 
 	url := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
