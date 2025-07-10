@@ -2,7 +2,7 @@ package service
 
 import (
 	"bytes"
-	"context" // Import context package
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -204,56 +204,34 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 		codec = "avc1"
 	}
 
-	// yt-dlp command to output raw stream to stdout
-	// Use bestvideo[ext=mp4][height<=720]+bestaudio/best[ext=mp4][height<=720]/best
-	// This selects the best video and audio streams that match the desired format and resolution.
-	// If no such stream exists, it falls back to the general "best" stream.
+	// Use --downloader ffmpeg to let yt-dlp handle the piping and conversion internally.
+	// This is more reliable than external piping.
+	// Format string: bestvideo[height<=RES]+bestaudio/best --recode-video FORMAT
+	// This tells yt-dlp to select the best video/audio and then recode it to the desired format.
 	ytDLPArgs := []string{
-		"--format", fmt.Sprintf("bestvideo[ext=%s][height<=%s]+bestaudio/best[ext=%s][height<=%s]/best", format, resolution, format, resolution),
+		"--downloader", "ffmpeg",
+		"--downloader-args", fmt.Sprintf("ffmpeg_i:-c:v %s", codec), // Pass video codec to ffmpeg
+		"--format", fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best", resolution),
+		"--recode-video", format,
 		"-o", "-", // Output to stdout
 		url,
 	}
-	ytDLPcmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, ytDLPArgs...) // Use CommandContext
-	slog.Debug(fmt.Sprintf("Executing yt-dlp for video stream pipe: %s %s", d.cfg.YTDLPPath, strings.Join(ytDLPArgs, " ")))
+	cmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, ytDLPArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for video stream: %s %s", d.cfg.YTDLPPath, strings.Join(ytDLPArgs, " ")))
 
-	ytDLPStdoutPipe, err := ytDLPcmd.StdoutPipe()
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe for yt-dlp: %w", err)
 	}
-	ytDLPcmd.Stderr = os.Stderr // Direct yt-dlp errors to stderr for debugging
+	cmd.Stderr = os.Stderr // Direct yt-dlp errors to stderr for debugging
 
-	// ffmpeg command to process the stream from stdin and output to stdout
-	ffmpegArgs := []string{
-		"-i", "pipe:0", // Input from stdin
-		"-f", format,
-		"-c:v", codec,
-		"-preset", "veryfast", // Optimize for streaming
-		"-movflags", "frag_keyframe+empty_moov", // Essential for fragmented MP4 streaming
-		"pipe:1", // Output to stdout
-	}
-	ffmpegCmd := exec.CommandContext(ctx, d.cfg.FFMPEGPath, ffmpegArgs...) // Use CommandContext
-	slog.Debug(fmt.Sprintf("Executing ffmpeg for video stream pipe: %s %s", d.cfg.FFMPEGPath, strings.Join(ffmpegArgs, " ")))
-
-	ffmpegCmd.Stdin = ytDLPStdoutPipe
-	ffmpegStdoutPipe, err := ffmpegCmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe for ffmpeg: %w", err)
-	}
-	ffmpegCmd.Stderr = os.Stderr // Direct ffmpeg errors to stderr for debugging
-
-	if err := ytDLPcmd.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start yt-dlp command for video stream: %w", err)
 	}
-	if err := ffmpegCmd.Start(); err != nil {
-		// If ffmpeg fails to start, ensure yt-dlp is killed
-		ytDLPcmd.Process.Kill()
-		return nil, fmt.Errorf("failed to start ffmpeg command for video stream: %w", err)
-	}
 
-	return &pipedCommandReadCloser{
-		ReadCloser:   ffmpegStdoutPipe,
-		primaryCmd:   ffmpegCmd,
-		secondaryCmd: ytDLPcmd,
+	return &commandReadCloser{
+		ReadCloser: stdoutPipe,
+		cmd:        cmd,
 	}, nil
 }
 
@@ -269,53 +247,32 @@ func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat s
 		bitrate = "128k"
 	}
 
-	// yt-dlp command to output raw audio stream to stdout
+	// Use --downloader ffmpeg to let yt-dlp handle the piping and conversion internally.
 	ytDLPArgs := []string{
 		"--extract-audio",
-		"--audio-format", "best", // Let yt-dlp choose best audio format
+		"--audio-format", outputFormat,
+		"--audio-quality", bitrate, // Corresponds to bitrate for audio quality
+		"--postprocessor-args", fmt.Sprintf("ffmpeg:-acodec %s", codec), // Specify audio codec for ffmpeg
+		"--downloader", "ffmpeg",
 		"-o", "-", // Output to stdout
 		url,
 	}
-	ytDLPcmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, ytDLPArgs...) // Use CommandContext
-	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio stream pipe: %s %s", d.cfg.YTDLPPath, strings.Join(ytDLPArgs, " ")))
+	cmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, ytDLPArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio stream: %s %s", d.cfg.YTDLPPath, strings.Join(ytDLPArgs, " ")))
 
-	ytDLPStdoutPipe, err := ytDLPcmd.StdoutPipe()
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe for yt-dlp: %w", err)
 	}
-	ytDLPcmd.Stderr = os.Stderr // Direct yt-dlp errors to stderr for debugging
+	cmd.Stderr = os.Stderr // Direct yt-dlp errors to stderr for debugging
 
-	// ffmpeg command to process the stream from stdin and output to stdout
-	ffmpegArgs := []string{
-		"-i", "pipe:0", // Input from stdin
-		"-f", outputFormat,
-		"-c:a", codec,
-		"-b:a", bitrate,
-		"pipe:1", // Output to stdout
-	}
-	ffmpegCmd := exec.CommandContext(ctx, d.cfg.FFMPEGPath, ffmpegArgs...) // Use CommandContext
-	slog.Debug(fmt.Sprintf("Executing ffmpeg for audio stream pipe: %s %s", d.cfg.FFMPEGPath, strings.Join(ffmpegArgs, " ")))
-
-	ffmpegCmd.Stdin = ytDLPStdoutPipe
-	ffmpegStdoutPipe, err := ffmpegCmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe for ffmpeg: %w", err)
-	}
-	ffmpegCmd.Stderr = os.Stderr // Direct ffmpeg errors to stderr for debugging
-
-	if err := ytDLPcmd.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start yt-dlp command for audio stream: %w", err)
 	}
-	if err := ffmpegCmd.Start(); err != nil {
-		// If ffmpeg fails to start, ensure yt-dlp is killed
-		ytDLPcmd.Process.Kill()
-		return nil, fmt.Errorf("failed to start ffmpeg command for audio stream: %w", err)
-	}
 
-	return &pipedCommandReadCloser{
-		ReadCloser:   ffmpegStdoutPipe,
-		primaryCmd:   ffmpegCmd,
-		secondaryCmd: ytDLPcmd,
+	return &commandReadCloser{
+		ReadCloser: stdoutPipe,
+		cmd:        cmd,
 	}, nil
 }
 
@@ -350,7 +307,9 @@ func (crc *commandReadCloser) Close() error {
 	return nil
 }
 
-// pipedCommandReadCloser manages two piped commands, ensuring both are waited on when closed.
+// pipedCommandReadCloser is no longer needed as we are now using --downloader ffmpeg
+// and only one command is executed.
+// This type is kept for reference if a multi-command pipe is ever needed again.
 type pipedCommandReadCloser struct {
 	io.ReadCloser
 	primaryCmd   *exec.Cmd // The command whose stdout is being read (e.g., ffmpeg)
