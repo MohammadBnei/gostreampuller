@@ -14,6 +14,8 @@ type Config struct {
 	AuthPassword string
 	DebugMode    bool
 	LocalMode    bool // When true, bypasses authentication for local testing
+	YTDLPPath    string // Path to yt-dlp executable
+	FFMPEGPath   string // Path to ffmpeg executable
 }
 
 // New creates a new Config with values from environment variables.
@@ -48,6 +50,18 @@ func New() (*Config, error) {
 		}
 	}
 
+	// YTDLPPath defaults to "yt-dlp"
+	ytDLPPath := os.Getenv("YTDLP_PATH")
+	if ytDLPPath == "" {
+		ytDLPPath = "yt-dlp"
+	}
+
+	// FFMPEGPath defaults to "ffmpeg"
+	ffmpegPath := os.Getenv("FFMPEG_PATH")
+	if ffmpegPath == "" {
+		ffmpegPath = "ffmpeg"
+	}
+
 	// Configure global logger based on debug mode
 	logLevel := slog.LevelInfo
 	if debugMode {
@@ -63,5 +77,7 @@ func New() (*Config, error) {
 		AuthPassword: password,
 		DebugMode:    debugMode,
 		LocalMode:    localMode,
+		YTDLPPath:    ytDLPPath,
+		FFMPEGPath:   ffmpegPath,
 	}, nil
 }
