@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context" // Import context package
 	"io"
 	"os"
 	"os/exec"
@@ -62,7 +63,10 @@ func TestDownloadVideoToFile(t *testing.T) {
 	resolution := "360" // Use a lower resolution for faster downloads
 	codec := "avc1"     // Common video codec
 
-	filePath, videoInfo, err := downloader.DownloadVideoToFile(url, format, resolution, codec)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	filePath, videoInfo, err := downloader.DownloadVideoToFile(ctx, url, format, resolution, codec)
 	assert.NoError(t, err, "DownloadVideoToFile should not fail on success")
 	assert.NotEmpty(t, filePath, "Returned file path should not be empty")
 	assert.NotNil(t, videoInfo, "Returned VideoInfo should not be nil")
@@ -95,9 +99,19 @@ func TestDownloadVideoToFile(t *testing.T) {
 	// Test with a non-existent URL to simulate yt-dlp failure
 	t.Run("yt-dlp failure", func(t *testing.T) {
 		nonExistentURL := "http://example.com/nonexistent_video_12345"
-		_, _, err = downloader.DownloadVideoToFile(nonExistentURL, format, resolution, codec)
+		_, _, err = downloader.DownloadVideoToFile(ctx, nonExistentURL, format, resolution, codec)
 		assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
 		assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
+	})
+
+	// Test context cancellation
+	t.Run("context cancellation", func(t *testing.T) {
+		ctxCancel, cancelCancel := context.WithCancel(context.Background())
+		// Cancel immediately
+		cancelCancel()
+		_, _, err := downloader.DownloadVideoToFile(ctxCancel, url, format, resolution, codec)
+		assert.Error(t, err, "Expected error due to context cancellation")
+		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
 	})
 }
 
@@ -120,7 +134,10 @@ func TestDownloadAudioToFile(t *testing.T) {
 	codec := "libmp3lame"
 	bitrate := "128k"
 
-	filePath, videoInfo, err := downloader.DownloadAudioToFile(url, outputFormat, codec, bitrate)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	filePath, videoInfo, err := downloader.DownloadAudioToFile(ctx, url, outputFormat, codec, bitrate)
 	assert.NoError(t, err, "DownloadAudioToFile should not fail on success")
 	assert.NotEmpty(t, filePath, "Returned file path should not be empty")
 	assert.NotNil(t, videoInfo, "Returned VideoInfo should not be nil")
@@ -153,9 +170,19 @@ func TestDownloadAudioToFile(t *testing.T) {
 	// Test with a non-existent URL to simulate yt-dlp failure
 	t.Run("yt-dlp failure", func(t *testing.T) {
 		nonExistentURL := "http://example.com/nonexistent_audio_12345"
-		_, _, err = downloader.DownloadAudioToFile(nonExistentURL, outputFormat, codec, bitrate)
+		_, _, err = downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
 		assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
 		assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
+	})
+
+	// Test context cancellation
+	t.Run("context cancellation", func(t *testing.T) {
+		ctxCancel, cancelCancel := context.WithCancel(context.Background())
+		// Cancel immediately
+		cancelCancel()
+		_, _, err := downloader.DownloadAudioToFile(ctxCancel, url, outputFormat, codec, bitrate)
+		assert.Error(t, err, "Expected error due to context cancellation")
+		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
 	})
 }
 
@@ -178,7 +205,10 @@ func TestStreamVideo(t *testing.T) {
 	resolution := "360"
 	codec := "avc1"
 
-	reader, err := downloader.StreamVideo(url, format, resolution, codec)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reader, err := downloader.StreamVideo(ctx, url, format, resolution, codec)
 	assert.NoError(t, err, "StreamVideo should not fail on success")
 	defer reader.Close()
 
@@ -191,9 +221,19 @@ func TestStreamVideo(t *testing.T) {
 	// Test with yt-dlp failure (e.g., non-existent URL)
 	t.Run("yt-dlp failure", func(t *testing.T) {
 		nonExistentURL := "http://example.com/nonexistent_stream_video_12345"
-		_, err = downloader.StreamVideo(nonExistentURL, format, resolution, codec)
+		_, err = downloader.StreamVideo(ctx, nonExistentURL, format, resolution, codec)
 		assert.Error(t, err, "Expected error when yt-dlp fails")
 		assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
+	})
+
+	// Test context cancellation
+	t.Run("context cancellation", func(t *testing.T) {
+		ctxCancel, cancelCancel := context.WithCancel(context.Background())
+		// Cancel immediately
+		cancelCancel()
+		_, err := downloader.StreamVideo(ctxCancel, url, format, resolution, codec)
+		assert.Error(t, err, "Expected error due to context cancellation")
+		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
 	})
 }
 
@@ -216,7 +256,10 @@ func TestStreamAudio(t *testing.T) {
 	codec := "libmp3lame"
 	bitrate := "128k"
 
-	reader, err := downloader.StreamAudio(url, outputFormat, codec, bitrate)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	reader, err := downloader.StreamAudio(ctx, url, outputFormat, codec, bitrate)
 	assert.NoError(t, err, "StreamAudio should not fail on success")
 	defer reader.Close()
 
@@ -229,9 +272,19 @@ func TestStreamAudio(t *testing.T) {
 	// Test with yt-dlp failure (e.g., non-existent URL)
 	t.Run("yt-dlp failure", func(t *testing.T) {
 		nonExistentURL := "http://example.com/nonexistent_stream_audio_12345"
-		_, err = downloader.StreamAudio(nonExistentURL, outputFormat, codec, bitrate)
+		_, err = downloader.StreamAudio(ctx, nonExistentURL, outputFormat, codec, bitrate)
 		assert.Error(t, err, "Expected error when yt-dlp fails")
 		assert.Contains(t, err.Error(), "failed to start yt-dlp", "Expected yt-dlp failure error message")
+	})
+
+	// Test context cancellation
+	t.Run("context cancellation", func(t *testing.T) {
+		ctxCancel, cancelCancel := context.WithCancel(context.Background())
+		// Cancel immediately
+		cancelCancel()
+		_, err := downloader.StreamAudio(ctxCancel, url, outputFormat, codec, bitrate)
+		assert.Error(t, err, "Expected error due to context cancellation")
+		assert.Contains(t, err.Error(), "context canceled", "Expected context canceled error message")
 	})
 }
 

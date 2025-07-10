@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context" // Import context package
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,7 +44,7 @@ type VideoInfo struct {
 
 // DownloadVideoToFile downloads a video from the given URL to a file.
 // It returns the path to the downloaded file and its metadata.
-func (d *Downloader) DownloadVideoToFile(url string, format string, resolution string, codec string) (string, *VideoInfo, error) {
+func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format string, resolution string, codec string) (string, *VideoInfo, error) {
 	if format == "" {
 		format = "mp4"
 	}
@@ -61,7 +62,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 		"--restrict-filenames", // To get a clean title for the filename
 		url,
 	}
-	infoCmd := exec.Command(d.cfg.YTDLPPath, infoArgs...)
+	infoCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, infoArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing yt-dlp for video info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
 
 	var infoStdout, infoStderr bytes.Buffer
@@ -93,7 +94,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 		url,
 	}
 
-	downloadCmd := exec.Command(d.cfg.YTDLPPath, downloadArgs...)
+	downloadCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, downloadArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing yt-dlp for video download: %s %s", d.cfg.YTDLPPath, strings.Join(downloadArgs, " ")))
 
 	var downloadStdout, downloadStderr bytes.Buffer
@@ -117,7 +118,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 
 // DownloadAudioToFile downloads audio from the given URL to a file.
 // It returns the path to the downloaded file and its metadata.
-func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec string, bitrate string) (string, *VideoInfo, error) {
+func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (string, *VideoInfo, error) {
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -135,7 +136,7 @@ func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec 
 		"--restrict-filenames", // To get a clean title for the filename
 		url,
 	}
-	infoCmd := exec.Command(d.cfg.YTDLPPath, infoArgs...)
+	infoCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, infoArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
 
 	var infoStdout, infoStderr bytes.Buffer
@@ -169,7 +170,7 @@ func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec 
 		url,
 	}
 
-	downloadCmd := exec.Command(d.cfg.YTDLPPath, downloadArgs...)
+	downloadCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, downloadArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio download: %s %s", d.cfg.YTDLPPath, strings.Join(downloadArgs, " ")))
 
 	var downloadStdout, downloadStderr bytes.Buffer
@@ -192,7 +193,7 @@ func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec 
 }
 
 // StreamVideo streams video from the given URL.
-func (d *Downloader) StreamVideo(url string, format string, resolution string, codec string) (io.ReadCloser, error) {
+func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string) (io.ReadCloser, error) {
 	if format == "" {
 		format = "mp4"
 	}
@@ -212,7 +213,7 @@ func (d *Downloader) StreamVideo(url string, format string, resolution string, c
 		"-o", "-", // Output to stdout
 		url,
 	}
-	ytDLPcmd := exec.Command(d.cfg.YTDLPPath, ytDLPArgs...)
+	ytDLPcmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, ytDLPArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing yt-dlp for video stream pipe: %s %s", d.cfg.YTDLPPath, strings.Join(ytDLPArgs, " ")))
 
 	ytDLPStdoutPipe, err := ytDLPcmd.StdoutPipe()
@@ -230,7 +231,7 @@ func (d *Downloader) StreamVideo(url string, format string, resolution string, c
 		"-movflags", "frag_keyframe+empty_moov", // Essential for fragmented MP4 streaming
 		"pipe:1", // Output to stdout
 	}
-	ffmpegCmd := exec.Command(d.cfg.FFMPEGPath, ffmpegArgs...)
+	ffmpegCmd := exec.CommandContext(ctx, d.cfg.FFMPEGPath, ffmpegArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing ffmpeg for video stream pipe: %s %s", d.cfg.FFMPEGPath, strings.Join(ffmpegArgs, " ")))
 
 	ffmpegCmd.Stdin = ytDLPStdoutPipe
@@ -257,7 +258,7 @@ func (d *Downloader) StreamVideo(url string, format string, resolution string, c
 }
 
 // StreamAudio streams audio from the given URL.
-func (d *Downloader) StreamAudio(url string, outputFormat string, codec string, bitrate string) (io.ReadCloser, error) {
+func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (io.ReadCloser, error) {
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -275,7 +276,7 @@ func (d *Downloader) StreamAudio(url string, outputFormat string, codec string, 
 		"-o", "-", // Output to stdout
 		url,
 	}
-	ytDLPcmd := exec.Command(d.cfg.YTDLPPath, ytDLPArgs...)
+	ytDLPcmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, ytDLPArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio stream pipe: %s %s", d.cfg.YTDLPPath, strings.Join(ytDLPArgs, " ")))
 
 	ytDLPStdoutPipe, err := ytDLPcmd.StdoutPipe()
@@ -292,7 +293,7 @@ func (d *Downloader) StreamAudio(url string, outputFormat string, codec string, 
 		"-b:a", bitrate,
 		"pipe:1", // Output to stdout
 	}
-	ffmpegCmd := exec.Command(d.cfg.FFMPEGPath, ffmpegArgs...)
+	ffmpegCmd := exec.CommandContext(ctx, d.cfg.FFMPEGPath, ffmpegArgs...) // Use CommandContext
 	slog.Debug(fmt.Sprintf("Executing ffmpeg for audio stream pipe: %s %s", d.cfg.FFMPEGPath, strings.Join(ffmpegArgs, " ")))
 
 	ffmpegCmd.Stdin = ytDLPStdoutPipe
