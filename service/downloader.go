@@ -1,4 +1,4 @@
-package downloader
+package service
 
 import (
 	"fmt"
@@ -7,24 +7,25 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gostreampuller/config" // Import the config package
 )
 
-var (
-	YTDLPPath  = "yt-dlp"
-	FFMPEGPath = "ffmpeg"
-)
-
-func SetYTDLPPath(path string) {
-	YTDLPPath = path
+// Downloader provides methods to download video and audio content.
+type Downloader struct {
+	cfg *config.Config
 }
 
-func SetFFMPEGPath(path string) {
-	FFMPEGPath = path
+// NewDownloader creates a new Downloader instance.
+func NewDownloader(cfg *config.Config) *Downloader {
+	return &Downloader{
+		cfg: cfg,
+	}
 }
 
 // DownloadVideo downloads a video, allowing optional format, resolution, and codec parameters.
 // If any parameter is empty, defaults will be used.
-func DownloadVideo(url string, format string, resolution string, codec string) (string, error) {
+func (d *Downloader) DownloadVideo(url string, format string, resolution string, codec string) (string, error) {
 	if format == "" {
 		format = "mp4"
 	}
@@ -38,7 +39,7 @@ func DownloadVideo(url string, format string, resolution string, codec string) (
 	temp := fmt.Sprintf("video_%d.%%(ext)s", time.Now().UnixNano())
 	selector := fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec)
 
-	cmd := exec.Command(YTDLPPath, "-f", selector, "-o", temp, url)
+	cmd := exec.Command(d.cfg.YTDLPPath, "-f", selector, "-o", temp, url)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("yt-dlp video download failed: %w", err)
 	}
@@ -62,7 +63,7 @@ func DownloadVideo(url string, format string, resolution string, codec string) (
 	// If format is different from downloaded format, convert it
 	finalOutput := strings.Replace(temp, "%(ext)s", format, 1)
 	if downloaded != finalOutput {
-		ffmpeg := exec.Command(FFMPEGPath, "-i", downloaded, "-c", "copy", "-y", finalOutput)
+		ffmpeg := exec.Command(d.cfg.FFMPEGPath, "-i", downloaded, "-c", "copy", "-y", finalOutput)
 		if err := ffmpeg.Run(); err != nil {
 			return "", fmt.Errorf("ffmpeg conversion failed: %w", err)
 		}
@@ -75,7 +76,7 @@ func DownloadVideo(url string, format string, resolution string, codec string) (
 
 // DownloadAudio downloads audio, allowing optional output format, codec, and bitrate parameters.
 // If any parameter is empty, defaults will be used.
-func DownloadAudio(url string, outputFormat string, codec string, bitrate string) (string, error) {
+func (d *Downloader) DownloadAudio(url string, outputFormat string, codec string, bitrate string) (string, error) {
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -87,15 +88,15 @@ func DownloadAudio(url string, outputFormat string, codec string, bitrate string
 	}
 
 	temp := fmt.Sprintf("audio_%d.%%(ext)s", time.Now().UnixNano())
-	cmd := exec.Command(YTDLPPath, "-f", "bestaudio", "-o", temp, url)
+	cmd := exec.Command(d.cfg.YTDLPPath, "-f", "bestaudio", "-o", temp, url)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("yt-dlp audio fetch failed: %w", err)
 	}
 
-	original := strings.Replace(temp, "%(ext)s", "webm", 1)
+	original := strings.Replace(temp, "%(ext)s", "webm", 1) // yt-dlp often downloads audio as webm
 	output := strings.Replace(temp, "%(ext)s", outputFormat, 1)
 
-	ffmpeg := exec.Command(FFMPEGPath, "-i", original, "-vn", "-acodec", codec, "-ab", bitrate, "-y", output)
+	ffmpeg := exec.Command(d.cfg.FFMPEGPath, "-i", original, "-vn", "-acodec", codec, "-ab", bitrate, "-y", output)
 	if err := ffmpeg.Run(); err != nil {
 		return "", fmt.Errorf("ffmpeg conversion failed: %w", err)
 	}
