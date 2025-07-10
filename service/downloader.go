@@ -34,7 +34,6 @@ type VideoInfo struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	OriginalURL string `json:"original_url"`
-	WebpageURL  string `json:"webpage_url"`
 	Ext         string `json:"ext"`
 	Duration    int    `json:"duration"` // in seconds
 	Uploader    string `json:"uploader"`
@@ -81,7 +80,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	}
 
 	// Generate a unique filename using timestamp and original extension
-	uniqueFilename := fmt.Sprintf("%d-%s.%s", time.Now().UnixNano(), videoInfo.ID, videoInfo.Ext)
+	uniqueFilename := fmt.Sprintf("%d-%s.%s", time.Now().UnixNano(), videoInfo.ID, format)
 	finalFilePath := filepath.Join(d.cfg.DownloadDir, uniqueFilename)
 
 	// Step 2: Download the video to the specific filename
@@ -198,7 +197,7 @@ func (d *Downloader) StreamVideo(url string, format string, resolution string, c
 		format = "mp4"
 	}
 	if resolution == "" {
-		resolution = "700" // Default to 700p for streaming if not specified
+		resolution = "720" // Default to 720p for streaming if not specified
 	}
 	if codec == "" {
 		codec = "avc1"

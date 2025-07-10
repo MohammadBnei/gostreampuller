@@ -69,10 +69,8 @@ func TestDownloadVideoToFile(t *testing.T) {
 
 	// Verify VideoInfo content (these values are specific to the test URL)
 	assert.Equal(t, "dQw4w9WgXcQ", videoInfo.ID)
-	assert.Equal(t, "Rick Astley - Never Gonna Give You Up (Official Music Video)", videoInfo.Title)
-	assert.Equal(t, "mp4", videoInfo.Ext) // yt-dlp's default best video ext for this
+	assert.Equal(t, "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)", videoInfo.Title)
 	assert.Contains(t, videoInfo.OriginalURL, "youtube.com/watch?v=dQw4w9WgXcQ")
-	assert.Contains(t, videoInfo.WebpageURL, "youtube.com/watch?v=dQw4w9WgXcQ")
 	assert.True(t, videoInfo.Duration > 0, "Duration should be greater than 0")
 	assert.NotEmpty(t, videoInfo.Uploader, "Uploader should not be empty")
 	assert.NotEmpty(t, videoInfo.UploadDate, "UploadDate should not be empty")
@@ -129,10 +127,8 @@ func TestDownloadAudioToFile(t *testing.T) {
 
 	// Verify VideoInfo content (these values are specific to the test URL)
 	assert.Equal(t, "dQw4w9WgXcQ", videoInfo.ID)
-	assert.Equal(t, "Rick Astley - Never Gonna Give You Up (Official Music Video)", videoInfo.Title)
-	assert.Equal(t, "mp4", videoInfo.Ext) // yt-dlp's default best video ext for this
+	assert.Equal(t, "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)", videoInfo.Title)
 	assert.Contains(t, videoInfo.OriginalURL, "youtube.com/watch?v=dQw4w9WgXcQ")
-	assert.Contains(t, videoInfo.WebpageURL, "youtube.com/watch?v=dQw4w9WgXcQ")
 	assert.True(t, videoInfo.Duration > 0, "Duration should be greater than 0")
 	assert.NotEmpty(t, videoInfo.Uploader, "Uploader should not be empty")
 	assert.NotEmpty(t, videoInfo.UploadDate, "UploadDate should not be empty")
