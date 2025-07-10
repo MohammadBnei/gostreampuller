@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,29 +12,27 @@ import (
 	"time"
 
 	"gostreampuller/config"
-	_ "gostreampuller/docs" // Import generated docs
+	_ "gostreampuller/docs" // This line is necessary for Swagger to find the docs
 	"gostreampuller/router"
 )
 
-//	@title			Stream Puller API
-//	@version		1.0
-//	@description	A lightweight, containerized REST API service for downloading video and audio streams.
-
-//	@contact.name	API Support
-//	@contact.url	http://www.example.com/support
-//	@contact.email	support@example.com
-
-//	@license.name	WTFPL
-//	@license.url	http://www.wtfpl.net/
-
-// @host						localhost:6060
-// @BasePath					/
-// @securityDefinitions.basic	BasicAuth
+// @title GoStreamPuller API
+// @version 1.0
+// @description A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.
+// @contact.name API Support
+// @contact.url http://www.example.com/support
+// @contact.email support@example.com
+// @BasePath /
+// @schemes http
 func main() {
+	// Set up structured logging
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	// Load configuration
 	cfg, err := config.New()
 	if err != nil {
-		log.Fatalf("Configuration error: %v", err)
+		slog.Error("Configuration error", "error", err)
+		os.Exit(1)
 	}
 
 	// Setup router
@@ -51,12 +51,13 @@ func main() {
 
 	// Start server
 	go func() {
-		log.Printf("Server starting on port %s...\n", cfg.Port)
+		slog.Info(fmt.Sprintf("Server starting on port %s...", cfg.Port))
 		if cfg.LocalMode {
-			log.Println("LOCAL_MODE enabled: Authentication is bypassed")
+			slog.Warn("LOCAL_MODE enabled: Authentication is bypassed")
 		}
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s", err)
+			slog.Error("Server failed to listen", "error", err)
+			os.Exit(1) // Exit if server fails to start
 		}
 	}()
 
@@ -67,11 +68,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	log.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
 	if err := srv.Shutdown(ctx); err != nil {
-		// Don't use Fatalf after defer to ensure defer runs
-		log.Printf("Server shutdown failed: %v", err)
-		defer os.Exit(1)
+		slog.Error("Server shutdown failed", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Server stopped")
+	slog.Info("Server stopped")
 }

@@ -30,6 +30,11 @@ func NewDownloader(cfg *config.Config) *Downloader {
 	}
 }
 
+// GetDownloadDir returns the configured download directory.
+func (d *Downloader) GetDownloadDir() string {
+	return d.cfg.DownloadDir
+}
+
 // VideoInfo represents a subset of yt-dlp's info.json output.
 type VideoInfo struct {
 	ID          string `json:"id"`
@@ -40,6 +45,34 @@ type VideoInfo struct {
 	Uploader    string `json:"uploader"`
 	UploadDate  string `json:"upload_date"` // YYYYMMDD
 	Thumbnail   string `json:"thumbnail"`   // URL to thumbnail
+}
+
+// GetVideoInfo fetches video metadata without downloading the file.
+func (d *Downloader) GetVideoInfo(ctx context.Context, url string) (*VideoInfo, error) {
+	infoArgs := []string{
+		"--dump-json",
+		"--no-playlist",
+		"--restrict-filenames",
+		url,
+	}
+	cmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, infoArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for video info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		slog.Error(fmt.Sprintf("yt-dlp info dump failed: %v\nStdout: %s\nStderr: %s", err, stdout.String(), stderr.String()))
+		return nil, fmt.Errorf("yt-dlp info dump failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	var videoInfo VideoInfo
+	if err := json.Unmarshal(stdout.Bytes(), &videoInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
+	}
+	return &videoInfo, nil
 }
 
 // DownloadVideoToFile downloads a video from the given URL to a file.
@@ -55,29 +88,9 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 		codec = "avc1"
 	}
 
-	// Step 1: Get video info using --dump-json
-	infoArgs := []string{
-		"--dump-json",
-		"--no-playlist",
-		"--restrict-filenames", // To get a clean title for the filename
-		url,
-	}
-	infoCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, infoArgs...) // Use CommandContext
-	slog.Debug(fmt.Sprintf("Executing yt-dlp for video info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
-
-	var infoStdout, infoStderr bytes.Buffer
-	infoCmd.Stdout = &infoStdout
-	infoCmd.Stderr = &infoStderr
-
-	err := infoCmd.Run()
+	videoInfo, err := d.GetVideoInfo(ctx, url)
 	if err != nil {
-		slog.Error(fmt.Sprintf("yt-dlp info dump failed: %v\nStdout: %s\nStderr: %s", err, infoStdout.String(), infoStderr.String()))
-		return "", nil, fmt.Errorf("yt-dlp info dump failed: %w, stderr: %s", err, infoStderr.String())
-	}
-
-	var videoInfo VideoInfo
-	if err := json.Unmarshal(infoStdout.Bytes(), &videoInfo); err != nil {
-		return "", nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
+		return "", nil, fmt.Errorf("failed to get video info: %w", err)
 	}
 
 	// Generate a unique filename using timestamp and original extension
@@ -113,7 +126,7 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 	}
 
 	slog.Info(fmt.Sprintf("Video downloaded to: %s", finalFilePath))
-	return finalFilePath, &videoInfo, nil
+	return finalFilePath, videoInfo, nil
 }
 
 // DownloadAudioToFile downloads audio from the given URL to a file.
@@ -129,29 +142,9 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 		bitrate = "128k"
 	}
 
-	// Step 1: Get video info using --dump-json
-	infoArgs := []string{
-		"--dump-json",
-		"--no-playlist",
-		"--restrict-filenames", // To get a clean title for the filename
-		url,
-	}
-	infoCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, infoArgs...) // Use CommandContext
-	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
-
-	var infoStdout, infoStderr bytes.Buffer
-	infoCmd.Stdout = &infoStdout
-	infoCmd.Stderr = &infoStderr
-
-	err := infoCmd.Run()
+	videoInfo, err := d.GetVideoInfo(ctx, url)
 	if err != nil {
-		slog.Error(fmt.Sprintf("yt-dlp info dump failed: %v\nStdout: %s\nStderr: %s", err, infoStdout.String(), infoStderr.String()))
-		return "", nil, fmt.Errorf("yt-dlp info dump failed: %w, stderr: %s", err, infoStderr.String())
-	}
-
-	var videoInfo VideoInfo // Re-use VideoInfo struct for audio metadata
-	if err := json.Unmarshal(infoStdout.Bytes(), &videoInfo); err != nil {
-		return "", nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
+		return "", nil, fmt.Errorf("failed to get audio info: %w", err)
 	}
 
 	// Generate a unique filename using timestamp and desired output format
@@ -189,7 +182,7 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 	}
 
 	slog.Info(fmt.Sprintf("Audio downloaded to: %s", finalFilePath))
-	return finalFilePath, &videoInfo, nil
+	return finalFilePath, videoInfo, nil
 }
 
 // StreamVideo streams video from the given URL.
@@ -301,55 +294,6 @@ func (crc *commandReadCloser) Close() error {
 	}
 	if crc.waitErr != nil {
 		return fmt.Errorf("command exited with error: %w", crc.waitErr)
-	}
-	return nil
-}
-
-// pipedCommandReadCloser is no longer needed as we are now using --downloader ffmpeg
-// and only one command is executed.
-// This type is kept for reference if a multi-command pipe is ever needed again.
-type pipedCommandReadCloser struct {
-	io.ReadCloser
-	primaryCmd   *exec.Cmd // The command whose stdout is being read (e.g., ffmpeg)
-	secondaryCmd *exec.Cmd // The command whose stdout is piped to primaryCmd's stdin (e.g., yt-dlp)
-	waitOnce     sync.Once
-	waitErrs     []error
-}
-
-// Close closes the underlying reader and waits for both commands to exit.
-func (pcrc *pipedCommandReadCloser) Close() error {
-	var errs []error
-
-	// Close the pipe from the primary command
-	if err := pcrc.ReadCloser.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("error closing primary pipe: %w", err))
-	}
-
-	// Wait for both commands to exit, ensuring it's only called once
-	pcrc.waitOnce.Do(func() {
-		// Wait for primary command
-		if err := pcrc.primaryCmd.Wait(); err != nil {
-			pcrc.waitErrs = append(pcrc.waitErrs, fmt.Errorf("primary command exited with error: %w", err))
-		}
-
-		// Wait for secondary command
-		if err := pcrc.secondaryCmd.Wait(); err != nil {
-			pcrc.waitErrs = append(pcrc.waitErrs, fmt.Errorf("secondary command exited with error: %w", err))
-		}
-	})
-
-	errs = append(errs, pcrc.waitErrs...)
-
-	if len(errs) > 0 {
-		// Combine errors if multiple occurred
-		var combinedError strings.Builder
-		for i, e := range errs {
-			if i > 0 {
-				combinedError.WriteString("; ")
-			}
-			combinedError.WriteString(e.Error())
-		}
-		return errors.New(combinedError.String())
 	}
 	return nil
 }
