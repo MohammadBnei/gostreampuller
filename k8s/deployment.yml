@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-go-api-template
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: home-go-api-template
+  template:
+    metadata:
+      labels:
+        app: home-go-api-template
+    spec:
+      containers:
+        - image: mohammaddocker/home-go-api-template
+          name: home-go-api-template
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: 400m
+              memory: 800Mi
+          env:  
+            - name: PORT
+              value: "3000"
+          envFrom:
+            - secretRef:
+                name: managed-home-go-api-template-secret

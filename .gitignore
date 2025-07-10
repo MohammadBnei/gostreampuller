@@ -1,0 +1,9 @@
+.aider*
+.env
+.DS_Store
+*.log
+/tmp
+.env
+
+# Binary
+home-go-api-template
