@@ -67,7 +67,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	}
 
 	// If format is different from downloaded format, convert it
-	finalOutput := strings.Replace(tempFilePath, "%(ext)s", format, 1)
+	finalOutput := strings.Replace(downloaded, filepath.Ext(downloaded), "."+format, 1)
 	if downloaded != finalOutput {
 		ffmpeg := exec.Command(d.cfg.FFMPEGPath, "-i", downloaded, "-c", "copy", "-y", finalOutput)
 		if err := ffmpeg.Run(); err != nil {
@@ -129,39 +129,47 @@ func (d *Downloader) StreamVideo(url string, format string, resolution string, c
 	}
 
 	// yt-dlp command to output to stdout
-	// Use -o - to output to stdout
-	// Use -f for format selection
 	selector := fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec)
-	ytDLPArgs := []string{"-f", selector, "-o", "-", url}
+	ytDLPArgs := []string{"-f", selector, "-o", "-", url} // -o - means output to stdout
 
 	ytDLPcmd := exec.Command(d.cfg.YTDLPPath, ytDLPArgs...)
 
-	// Get stdout pipe from yt-dlp
 	ytDLPStdout, err := ytDLPcmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get yt-dlp stdout pipe: %w", err)
 	}
 
-	// Start yt-dlp command
+	// ffmpeg command to convert the video stream from yt-dlp's stdout to the desired format
+	// -i pipe:0 reads from stdin
+	// -f <format> sets the output format
+	// -c copy attempts to copy streams without re-encoding if possible, for speed
+	// -movflags frag_keyframe+empty_moov is good for progressive streaming of MP4
+	// -o pipe:1 outputs to stdout
+	ffmpegArgs := []string{"-i", "pipe:0", "-f", format, "-c", "copy", "-movflags", "frag_keyframe+empty_moov", "pipe:1"}
+	ffmpegCmd := exec.Command(d.cfg.FFMPEGPath, ffmpegArgs...)
+
+	ffmpegCmd.Stdin = ytDLPStdout // Pipe yt-dlp's stdout to ffmpeg's stdin
+
+	ffmpegStdout, err := ffmpegCmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ffmpeg stdout pipe: %w", err)
+	}
+
+	// Start both commands
 	if err := ytDLPcmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start yt-dlp: %w", err)
 	}
+	if err := ffmpegCmd.Start(); err != nil {
+		// If ffmpeg fails to start, ensure yt-dlp is killed
+		ytDLPcmd.Process.Kill()
+		return nil, fmt.Errorf("failed to start ffmpeg: %w", err)
+	}
 
-	// For simplicity, we'll return the yt-dlp stdout directly.
-	// If a specific format is requested that yt-dlp cannot directly output to stdout,
-	// we would need to pipe through ffmpeg here.
-	// Example for piping through ffmpeg if needed:
-	// ffmpegArgs := []string{"-i", "pipe:0", "-f", format, "-c", "copy", "pipe:1"} // Adjust codecs as needed
-	// ffmpegCmd := exec.Command(d.cfg.FFMPEGPath, ffmpegArgs...)
-	// ffmpegCmd.Stdin = ytDLPStdout
-	// ffmpegStdout, err := ffmpegCmd.StdoutPipe()
-	// if err != nil { /* handle error */ }
-	// if err := ffmpegCmd.Start(); err != nil { /* handle error */ }
-	// return &pipedCommandReadCloser{ReadCloser: ffmpegStdout, primaryCmd: ffmpegCmd, secondaryCmd: ytDLPcmd}, nil
-
-	return &commandReadCloser{
-		ReadCloser: ytDLPStdout,
-		cmd:        ytDLPcmd,
+	// Return a ReadCloser that manages both commands
+	return &pipedCommandReadCloser{
+		ReadCloser:   ffmpegStdout,
+		primaryCmd:   ffmpegCmd,
+		secondaryCmd: ytDLPcmd, // Ensure yt-dlp is also waited on
 	}, nil
 }
 
