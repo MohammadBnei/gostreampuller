@@ -39,10 +39,13 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 		codec = "avc1"
 	}
 
-	temp := fmt.Sprintf("video_%d.%%(ext)s", time.Now().UnixNano())
+	// Construct the temporary file path within the configured download directory
+	tempFileName := fmt.Sprintf("video_%d.%%(ext)s", time.Now().UnixNano())
+	tempFilePath := filepath.Join(d.cfg.DownloadDir, tempFileName)
+
 	selector := fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec)
 
-	cmd := exec.Command(d.cfg.YTDLPPath, "-f", selector, "-o", temp, url)
+	cmd := exec.Command(d.cfg.YTDLPPath, "-f", selector, "-o", tempFilePath, url)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("yt-dlp video download failed: %w", err)
 	}
@@ -52,7 +55,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	possibleExtensions := []string{"mkv", "mp4", "webm", "avi", "mov", "flv"}
 
 	for _, ext := range possibleExtensions {
-		candidate := strings.Replace(temp, "%(ext)s", ext, 1)
+		candidate := strings.Replace(tempFilePath, "%(ext)s", ext, 1)
 		if _, err := os.Stat(candidate); err == nil {
 			downloaded = candidate
 			break
@@ -64,7 +67,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	}
 
 	// If format is different from downloaded format, convert it
-	finalOutput := strings.Replace(temp, "%(ext)s", format, 1)
+	finalOutput := strings.Replace(tempFilePath, "%(ext)s", format, 1)
 	if downloaded != finalOutput {
 		ffmpeg := exec.Command(d.cfg.FFMPEGPath, "-i", downloaded, "-c", "copy", "-y", finalOutput)
 		if err := ffmpeg.Run(); err != nil {
@@ -91,14 +94,17 @@ func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec 
 		bitrate = "128k"
 	}
 
-	temp := fmt.Sprintf("audio_%d.%%(ext)s", time.Now().UnixNano())
-	cmd := exec.Command(d.cfg.YTDLPPath, "-f", "bestaudio", "-o", temp, url)
+	// Construct the temporary file path within the configured download directory
+	tempFileName := fmt.Sprintf("audio_%d.%%(ext)s", time.Now().UnixNano())
+	tempFilePath := filepath.Join(d.cfg.DownloadDir, tempFileName)
+
+	cmd := exec.Command(d.cfg.YTDLPPath, "-f", "bestaudio", "-o", tempFilePath, url)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("yt-dlp audio fetch failed: %w", err)
 	}
 
-	original := strings.Replace(temp, "%(ext)s", "webm", 1) // yt-dlp often downloads audio as webm
-	output := strings.Replace(temp, "%(ext)s", outputFormat, 1)
+	original := strings.Replace(tempFilePath, "%(ext)s", "webm", 1) // yt-dlp often downloads audio as webm
+	output := strings.Replace(tempFilePath, "%(ext)s", outputFormat, 1)
 
 	ffmpeg := exec.Command(d.cfg.FFMPEGPath, "-i", original, "-vn", "-acodec", codec, "-ab", bitrate, "-y", output)
 	if err := ffmpeg.Run(); err != nil {

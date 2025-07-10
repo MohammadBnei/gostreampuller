@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/BoRuDar/configuration/v5"
 )
@@ -19,6 +20,7 @@ type Config struct {
 	LocalMode    bool   `env:"LOCAL_MODE" default:"false"` // When true, bypasses authentication for local testing
 	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
 	FFMPEGPath   string `env:"FFMPEG_PATH" default:"ffmpeg"`
+	DownloadDir  string `env:"DOWNLOAD_DIR" default:"."` // Directory to store downloaded files
 }
 
 // New creates a new Config with values from environment variables.
@@ -51,6 +53,26 @@ func New() (*Config, error) {
 	if err := checkExecutable(cfg.FFMPEGPath, "ffmpeg", "-version"); err != nil {
 		return nil, err
 	}
+
+	// Verify and prepare download directory
+	absDownloadDir, err := filepath.Abs(cfg.DownloadDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path for download directory '%s': %w", cfg.DownloadDir, err)
+	}
+	cfg.DownloadDir = absDownloadDir // Update config with absolute path
+
+	if err := os.MkdirAll(cfg.DownloadDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create download directory '%s': %w", cfg.DownloadDir, err)
+	}
+
+	// Check if directory is writable
+	testFile := filepath.Join(cfg.DownloadDir, ".test_write")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		return nil, fmt.Errorf("download directory '%s' is not writable: %w", cfg.DownloadDir, err)
+	}
+	os.Remove(testFile) // Clean up test file
+
+	slog.Info(fmt.Sprintf("Download directory set to: %s", cfg.DownloadDir))
 
 	// Configure global logger based on debug mode
 	logLevel := slog.LevelInfo
