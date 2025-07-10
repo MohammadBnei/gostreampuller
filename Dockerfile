@@ -19,6 +19,9 @@ FROM alpine:latest
 
 WORKDIR /app
 
+# Install yt-dlp and ffmpeg
+RUN apk update && apk add --no-cache yt-dlp ffmpeg
+
 # Copy the binary from the builder stage
 COPY --from=builder /app/server .
 
