@@ -208,7 +208,7 @@ func TestDownloadAudioToFile_YTDLPFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, _, err = downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
+	_, _, err := downloader.DownloadAudioToFile(ctx, nonExistentURL, outputFormat, codec, bitrate)
 	assert.Error(t, err, "Expected error when yt-dlp fails for non-existent URL")
 	assert.Contains(t, err.Error(), "yt-dlp info dump failed", "Expected yt-dlp info dump failure error message")
 }
