@@ -40,7 +40,7 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 	}
 
 	// Construct the temporary file path within the configured download directory
-	tempFileName := fmt.Sprintf("video_%d.%%(ext)s", time.Now().UnixNano())
+	tempFileName := "%(title)s.%(ext)s"
 	tempFilePath := filepath.Join(d.cfg.DownloadDir, tempFileName)
 
 	selector := fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec)
