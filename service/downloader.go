@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"gostreampuller/config"
 )
@@ -27,9 +29,22 @@ func NewDownloader(cfg *config.Config) *Downloader {
 	}
 }
 
+// VideoInfo represents a subset of yt-dlp's info.json output.
+type VideoInfo struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	OriginalURL string `json:"original_url"`
+	WebpageURL  string `json:"webpage_url"`
+	Ext         string `json:"ext"`
+	Duration    int    `json:"duration"` // in seconds
+	Uploader    string `json:"uploader"`
+	UploadDate  string `json:"upload_date"` // YYYYMMDD
+	Thumbnail   string `json:"thumbnail"`   // URL to thumbnail
+}
+
 // DownloadVideoToFile downloads a video from the given URL to a file.
-// It returns the path to the downloaded file.
-func (d *Downloader) DownloadVideoToFile(url string, format string, resolution string, codec string) (string, error) {
+// It returns the path to the downloaded file and its metadata.
+func (d *Downloader) DownloadVideoToFile(url string, format string, resolution string, codec string) (string, *VideoInfo, error) {
 	if format == "" {
 		format = "mp4"
 	}
@@ -40,65 +55,70 @@ func (d *Downloader) DownloadVideoToFile(url string, format string, resolution s
 		codec = "avc1"
 	}
 
-	// Use %(filepath)s to get the final path after yt-dlp's processing
-	outputTemplate := filepath.Join(d.cfg.DownloadDir, "%(title)s")
+	// Step 1: Get video info using --dump-json
+	infoArgs := []string{
+		"--dump-json",
+		"--no-playlist",
+		"--restrict-filenames", // To get a clean title for the filename
+		url,
+	}
+	infoCmd := exec.Command(d.cfg.YTDLPPath, infoArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for video info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
 
-	args := []string{
+	var infoStdout, infoStderr bytes.Buffer
+	infoCmd.Stdout = &infoStdout
+	infoCmd.Stderr = &infoStderr
+
+	err := infoCmd.Run()
+	if err != nil {
+		slog.Error(fmt.Sprintf("yt-dlp info dump failed: %v\nStdout: %s\nStderr: %s", err, infoStdout.String(), infoStderr.String()))
+		return "", nil, fmt.Errorf("yt-dlp info dump failed: %w, stderr: %s", err, infoStderr.String())
+	}
+
+	var videoInfo VideoInfo
+	if err := json.Unmarshal(infoStdout.Bytes(), &videoInfo); err != nil {
+		return "", nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
+	}
+
+	// Generate a unique filename using timestamp and original extension
+	uniqueFilename := fmt.Sprintf("%d-%s.%s", time.Now().UnixNano(), videoInfo.ID, videoInfo.Ext)
+	finalFilePath := filepath.Join(d.cfg.DownloadDir, uniqueFilename)
+
+	// Step 2: Download the video to the specific filename
+	downloadArgs := []string{
 		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
-		"--output", outputTemplate,
+		"--output", finalFilePath,
 		"--no-progress",
-		"--restrict-filenames",   // Helps with predictable filenames
 		"--no-playlist",          // Assume single video download
 		"--recode-video", format, // Instruct yt-dlp to convert to the desired format
 		url,
 	}
 
-	cmd := exec.Command(d.cfg.YTDLPPath, args...)
-	slog.Debug(fmt.Sprintf("Executing yt-dlp for video download: %s %s", d.cfg.YTDLPPath, strings.Join(args, " ")))
+	downloadCmd := exec.Command(d.cfg.YTDLPPath, downloadArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for video download: %s %s", d.cfg.YTDLPPath, strings.Join(downloadArgs, " ")))
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	var downloadStdout, downloadStderr bytes.Buffer
+	downloadCmd.Stdout = &downloadStdout
+	downloadCmd.Stderr = &downloadStderr
 
-	err := cmd.Run()
+	err = downloadCmd.Run()
 	if err != nil {
-		slog.Error(fmt.Sprintf("yt-dlp video download failed: %v\nStdout: %s\nStderr: %s", err, stdoutBuf.String(), stderrBuf.String()))
-		return "", fmt.Errorf("yt-dlp video download failed: %w, stderr: %s", err, stderrBuf.String())
+		slog.Error(fmt.Sprintf("yt-dlp video download failed: %v\nStdout: %s\nStderr: %s", err, downloadStdout.String(), downloadStderr.String()))
+		return "", nil, fmt.Errorf("yt-dlp video download failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
-	// Parse stdout to find the downloaded filename using %(filepath)s
-	// yt-dlp prints the final filepath when using --print filepath
-	// However, when not using --print, it's usually in the last few lines of output.
-	// A more robust way is to use --print filepath and capture that specific output.
-	// For now, let's try to parse the "Destination" line which is usually reliable.
-	outputLines := strings.Split(stdoutBuf.String(), "\n")
-	var downloadedFilePath string
-	for _, line := range outputLines {
-		// Look for lines indicating the final destination after all processing
-		if strings.Contains(line, d.cfg.DownloadDir) {
-			downloadedFilePath = line
-			break
-		}
+	// Verify the file exists
+	if _, err := os.Stat(finalFilePath); err != nil {
+		return "", nil, fmt.Errorf("downloaded video file not found at %s: %w", finalFilePath, err)
 	}
 
-	if downloadedFilePath == "" {
-		return "", errors.New("could not find downloaded video file path in yt-dlp output")
-	}
-
-	downloadedFilePath = fmt.Sprintf("%s.%s", downloadedFilePath, format)
-
-	_, err = os.Stat(downloadedFilePath)
-	if err != nil {
-		return "", fmt.Errorf("could not find downloaded video file: %w", err)
-	}
-
-	slog.Info(fmt.Sprintf("Video downloaded to: %s", downloadedFilePath))
-	return downloadedFilePath, nil
+	slog.Info(fmt.Sprintf("Video downloaded to: %s", finalFilePath))
+	return finalFilePath, &videoInfo, nil
 }
 
 // DownloadAudioToFile downloads audio from the given URL to a file.
-// It returns the path to the downloaded file.
-func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec string, bitrate string) (string, error) {
+// It returns the path to the downloaded file and its metadata.
+func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec string, bitrate string) (string, *VideoInfo, error) {
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -109,59 +129,67 @@ func (d *Downloader) DownloadAudioToFile(url string, outputFormat string, codec 
 		bitrate = "128k"
 	}
 
-	outputTemplate := filepath.Join(d.cfg.DownloadDir, "%(title)s.%(ext)s")
+	// Step 1: Get video info using --dump-json
+	infoArgs := []string{
+		"--dump-json",
+		"--no-playlist",
+		"--restrict-filenames", // To get a clean title for the filename
+		url,
+	}
+	infoCmd := exec.Command(d.cfg.YTDLPPath, infoArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
 
-	// yt-dlp command to download audio and convert
-	args := []string{
+	var infoStdout, infoStderr bytes.Buffer
+	infoCmd.Stdout = &infoStdout
+	infoCmd.Stderr = &infoStderr
+
+	err := infoCmd.Run()
+	if err != nil {
+		slog.Error(fmt.Sprintf("yt-dlp info dump failed: %v\nStdout: %s\nStderr: %s", err, infoStdout.String(), infoStderr.String()))
+		return "", nil, fmt.Errorf("yt-dlp info dump failed: %w, stderr: %s", err, infoStderr.String())
+	}
+
+	var videoInfo VideoInfo // Re-use VideoInfo struct for audio metadata
+	if err := json.Unmarshal(infoStdout.Bytes(), &videoInfo); err != nil {
+		return "", nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
+	}
+
+	// Generate a unique filename using timestamp and desired output format
+	uniqueFilename := fmt.Sprintf("%d-%s.%s", time.Now().UnixNano(), videoInfo.ID, outputFormat)
+	finalFilePath := filepath.Join(d.cfg.DownloadDir, uniqueFilename)
+
+	// Step 2: Download the audio to the specific filename
+	downloadArgs := []string{
 		"--extract-audio",
 		"--audio-format", outputFormat,
 		"--audio-quality", bitrate, // Corresponds to bitrate for audio quality
 		"--postprocessor-args", fmt.Sprintf("ffmpeg:-acodec %s", codec), // Specify audio codec for ffmpeg
-		"--output", outputTemplate,
-		"--restrict-filenames",
+		"--output", finalFilePath,
+		"--no-progress",
 		"--no-playlist",
 		url,
 	}
 
-	cmd := exec.Command(d.cfg.YTDLPPath, args...)
-	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio download: %s %s", d.cfg.YTDLPPath, strings.Join(args, " ")))
+	downloadCmd := exec.Command(d.cfg.YTDLPPath, downloadArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for audio download: %s %s", d.cfg.YTDLPPath, strings.Join(downloadArgs, " ")))
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	var downloadStdout, downloadStderr bytes.Buffer
+	downloadCmd.Stdout = &downloadStdout
+	downloadCmd.Stderr = &downloadStderr
 
-	err := cmd.Run()
+	err = downloadCmd.Run()
 	if err != nil {
-		slog.Error(fmt.Sprintf("yt-dlp audio fetch failed: %v\nStdout: %s\nStderr: %s", err, stdoutBuf.String(), stderrBuf.String()))
-		return "", fmt.Errorf("yt-dlp audio fetch failed: %w, stderr: %s", err, stderrBuf.String())
+		slog.Error(fmt.Sprintf("yt-dlp audio fetch failed: %v\nStdout: %s\nStderr: %s", err, downloadStdout.String(), downloadStderr.String()))
+		return "", nil, fmt.Errorf("yt-dlp audio fetch failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
-	// Parse stdout to find the downloaded filename
-	outputLines := strings.Split(stdoutBuf.String(), "\n")
-	var downloadedFilePath string
-	for _, line := range outputLines {
-		// yt-dlp often renames the file after post-processing.
-		// Look for the line indicating the final file.
-		// Example: `[ExtractAudio] Destination: My Audio Title.mp3`
-		// Or `[ffmpeg] Destination: My Audio Title.mp3`
-		if strings.Contains(line, "Destination:") && strings.Contains(line, d.cfg.DownloadDir) {
-			parts := strings.Split(line, "Destination:")
-			if len(parts) > 1 {
-				potentialPath := strings.TrimSpace(parts[1])
-				if filepath.IsAbs(potentialPath) && strings.HasPrefix(potentialPath, d.cfg.DownloadDir) {
-					downloadedFilePath = potentialPath
-					break
-				}
-			}
-		}
+	// Verify the file exists
+	if _, err := os.Stat(finalFilePath); err != nil {
+		return "", nil, fmt.Errorf("downloaded audio file not found at %s: %w", finalFilePath, err)
 	}
 
-	if downloadedFilePath == "" {
-		return "", errors.New("could not find downloaded audio file path in yt-dlp output")
-	}
-
-	slog.Info(fmt.Sprintf("Audio downloaded to: %s", downloadedFilePath))
-	return downloadedFilePath, nil
+	slog.Info(fmt.Sprintf("Audio downloaded to: %s", finalFilePath))
+	return finalFilePath, &videoInfo, nil
 }
 
 // StreamVideo streams video from the given URL.
@@ -170,13 +198,16 @@ func (d *Downloader) StreamVideo(url string, format string, resolution string, c
 		format = "mp4"
 	}
 	if resolution == "" {
-		resolution = "720"
+		resolution = "700" // Default to 700p for streaming if not specified
 	}
 	if codec == "" {
 		codec = "avc1"
 	}
 
 	// yt-dlp command to output raw stream to stdout
+	// Use bestvideo[ext=mp4][height<=720]+bestaudio/best[ext=mp4][height<=720]/best
+	// This selects the best video and audio streams that match the desired format and resolution.
+	// If no such stream exists, it falls back to the general "best" stream.
 	ytDLPArgs := []string{
 		"--format", fmt.Sprintf("bestvideo[ext=%s][height<=%s]+bestaudio/best[ext=%s][height<=%s]/best", format, resolution, format, resolution),
 		"-o", "-", // Output to stdout
