@@ -14,9 +14,9 @@ import (
 	"gostreampuller/router"
 )
 
-//	@title			DuckDuckGo Search API
+//	@title			Stream Puller API
 //	@version		1.0
-//	@description	A lightweight, containerized REST API service that provides search functionality by proxying requests to DuckDuckGo.
+//	@description	A lightweight, containerized REST API service for downloading video and audio streams.
 
 //	@contact.name	API Support
 //	@contact.url	http://www.example.com/support

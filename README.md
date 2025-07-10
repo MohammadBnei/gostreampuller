@@ -1,15 +1,16 @@
-# DuckDuckGo Search API
+# Stream Puller API
 
-A lightweight, containerized REST API service that provides search functionality by proxying requests to DuckDuckGo.
+A lightweight, containerized REST API service for downloading video and audio streams using `yt-dlp` and `ffmpeg`.
 
 ## Features
 
-- Simple REST API for searching DuckDuckGo
-- Basic authentication for API security
-- Configurable result limits
-- Health check endpoint
-- Docker and Kubernetes ready
-- Local development mode
+- Download video streams from various sources.
+- Download audio streams from various sources.
+- Configurable output formats, resolutions, and codecs.
+- Basic authentication for API security.
+- Health check endpoint.
+- Docker and Kubernetes ready.
+- Local development mode.
 
 ## Configuration
 
@@ -22,35 +23,10 @@ The service can be configured using environment variables:
 | `AUTH_PASSWORD` | Password for Basic Auth | Required |
 | `DEBUG` | Enable debug logging | `false` |
 | `LOCAL_MODE` | Bypass authentication for local testing | `false` |
+| `YTDLP_PATH` | Path to the `yt-dlp` executable | `yt-dlp` |
+| `FFMPEG_PATH` | Path to the `ffmpeg` executable | `ffmpeg` |
 
 ## API Endpoints
-
-### Search
-
-```
-GET /search?q=your+search+query&limit=10
-```
-
-Parameters:
-
-- `q`: Search query (required)
-- `limit`: Maximum number of results to return (optional)
-
-Authentication:
-
-- Basic Authentication required (unless in LOCAL_MODE)
-
-Response:
-
-```json
-[
-  {
-    "title": "Result title",
-    "url": "https://example.com",
-    "snippet": "Result description..."
-  }
-]
-```
 
 ### Health Check
 
@@ -67,6 +43,9 @@ Response: `OK` with status code 200
 export AUTH_USERNAME=user
 export AUTH_PASSWORD=pass
 export LOCAL_MODE=true
+# Optional: Set custom paths if yt-dlp/ffmpeg are not in your PATH
+# export YTDLP_PATH=/usr/local/bin/yt-dlp
+# export FFMPEG_PATH=/usr/local/bin/ffmpeg
 
 # Run the service
 go run main.go
@@ -101,6 +80,7 @@ kubectl apply -k k8s/
 ### Prerequisites
 
 - Go 1.24
+- `yt-dlp` and `ffmpeg` installed and accessible in your system's PATH or specified via environment variables.
 
 ### Testing
 
