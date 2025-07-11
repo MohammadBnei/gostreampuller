@@ -222,13 +222,13 @@
         const audioQualitySelect = document.getElementById('audioQuality');
 
         const videoInfoCard = document.querySelector('.video-info-card');
+        const videoInfoThumbnail = videoInfoCard ? videoInfoCard.querySelector('img') : null;
         const videoInfoTitle = videoInfoCard ? videoInfoCard.querySelector('h3') : null;
         const videoInfoUploader = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(1)') : null;
         const videoInfoDuration = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(2)') : null;
         const videoInfoResolution = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(3)') : null;
         const videoInfoCodec = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(4)') : null;
         const videoInfoOriginalURL = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(5) a') : null;
-        const videoInfoThumbnail = videoInfoCard ? videoInfoCard.querySelector('img') : null;
 
         const progressContainer = document.querySelector('.progress-container');
         const progressBarFill = document.querySelector('.progress-bar-fill');
@@ -346,14 +346,13 @@
 
             // After SSE is connected and initial info is fetched, trigger the actual operation
             // This is crucial to ensure progress updates start before the long-running task.
-            if (initialAction === 'stream' && '{{ .StreamURL }}') {
-                videoPlayer.style.display = 'block';
-                videoPlayer.querySelector('source').src = '{{ .StreamURL }}';
-                videoPlayer.querySelector('video').load(); // Load the new video source
-            } else if (initialAction === 'download_video' && '{{ .DownloadVideoURL }}') {
-                window.location.href = '{{ .DownloadVideoURL }}';
-            } else if (initialAction === 'download_audio' && '{{ .DownloadAudioURL }}') {
-                window.location.href = '{{ .DownloadAudioURL }}';
+            // This part is now handled by the server's initial response and the client-side redirect.
+            // We only need to ensure the video player is shown if it's a stream.
+            if (initialAction === 'stream') {
+                if (videoPlayer) videoPlayer.style.display = 'block';
+                // The source URL is already set by the server-side template rendering
+                // videoPlayer.querySelector('source').src = '{{ .StreamURL }}';
+                // videoPlayer.querySelector('video').load(); // Load the new video source
             }
         }
 
@@ -367,15 +366,10 @@
             errorMessage.style.display = 'none';
 
             const formData = new FormData(streamForm);
-            const url = formData.get('url');
-            const resolution = formData.get('resolution');
-            const videoCodec = formData.get('codec');
-            const audioQuality = formData.get('audioQuality');
             const action = event.submitter.value; // Get the value of the clicked button
 
             // Send an AJAX request to the server to initiate the operation
             // The server will respond with the initial HTML (which includes progressID and VideoInfo)
-            // and then the SSE will take over.
             fetch('/web', {
                 method: 'POST',
                 body: new URLSearchParams(formData).toString(),
@@ -405,12 +399,37 @@
                 // or ensure it's only run once. For this example, we'll just re-run it.
 
                 // Get the progressID and action from the newly rendered page
-                const newProgressID = doc.querySelector('[name="progressID"]') ? doc.querySelector('[name="progressID"]').value : null;
-                const newAction = doc.querySelector('[name="action"]') ? doc.querySelector('[name="action"]').value : null;
+                const newProgressID = doc.querySelector('#progressIDHidden') ? doc.querySelector('#progressIDHidden').value : null;
+                const newAction = doc.querySelector('#actionHidden') ? doc.querySelector('#actionHidden').value : null;
+                const newVideoInfoJSON = doc.querySelector('#videoInfoJSONHidden') ? doc.querySelector('#videoInfoJSONHidden').value : null;
+                const newStreamURL = doc.querySelector('#streamURLHidden') ? doc.querySelector('#streamURLHidden').value : null;
+                const newDownloadVideoURL = doc.querySelector('#downloadVideoURLHidden') ? doc.querySelector('#downloadVideoURLHidden').value : null;
+                const newDownloadAudioURL = doc.querySelector('#downloadAudioURLHidden') ? doc.querySelector('#downloadAudioURLHidden').value : null;
+
 
                 // If progressID is available, start SSE
                 if (newProgressID) {
+                    // Update the global variables with the new values
+                    // This is a hacky way to re-initialize the script's context after DOM replacement.
+                    // In a real SPA, you'd update a state object and re-render components.
+                    // For this simple example, we'll just pass them to initSSE.
+                    const videoInfo = newVideoInfoJSON ? JSON.parse(newVideoInfoJSON) : null;
+                    updateVideoInfoCard(videoInfo); // Update card with info from the new response
+
                     initSSE(newProgressID, newAction);
+
+                    // Trigger download/stream if it's not the initial page load
+                    if (newAction === 'download_video' && newDownloadVideoURL) {
+                        window.location.href = newDownloadVideoURL;
+                    } else if (newAction === 'download_audio' && newDownloadAudioURL) {
+                        window.location.href = newDownloadAudioURL;
+                    } else if (newAction === 'stream' && newStreamURL) {
+                        if (videoPlayer) {
+                            videoPlayer.style.display = 'block';
+                            videoPlayer.querySelector('source').src = newStreamURL;
+                            videoPlayer.querySelector('video').load();
+                        }
+                    }
                 } else {
                     displayError('Failed to get progress ID from server response.');
                 }
@@ -423,11 +442,32 @@
 
         // Initial setup if page is loaded with existing data (e.g., after a server-side redirect)
         // This part is for when the server renders the page with .VideoInfo and .ProgressID initially.
-        const initialProgressID = '{{ .ProgressID }}';
-        const initialAction = '{{ .Action }}';
+        // We need to get these values from hidden inputs now, as the template variables are only for initial render.
+        const initialProgressID = document.getElementById('progressIDHidden') ? document.getElementById('progressIDHidden').value : null;
+        const initialAction = document.getElementById('actionHidden') ? document.getElementById('actionHidden').value : null;
+        const initialVideoInfoJSON = document.getElementById('videoInfoJSONHidden') ? document.getElementById('videoInfoJSONHidden').value : null;
+        const initialStreamURL = document.getElementById('streamURLHidden') ? document.getElementById('streamURLHidden').value : null;
+        const initialDownloadVideoURL = document.getElementById('downloadVideoURLHidden') ? document.getElementById('downloadVideoURLHidden').value : null;
+        const initialDownloadAudioURL = document.getElementById('downloadAudioURLHidden') ? document.getElementById('downloadAudioURLHidden').value : null;
+
+
         if (initialProgressID) {
-            updateVideoInfoCard({{ .VideoInfoJSON }}); // Populate card with initial info
+            const videoInfo = initialVideoInfoJSON ? JSON.parse(initialVideoInfoJSON) : null;
+            updateVideoInfoCard(videoInfo); // Populate card with initial info
             initSSE(initialProgressID, initialAction);
+
+            // Trigger download/stream if it's the initial page load
+            if (initialAction === 'download_video' && initialDownloadVideoURL) {
+                window.location.href = initialDownloadVideoURL;
+            } else if (initialAction === 'download_audio' && initialDownloadAudioURL) {
+                window.location.href = initialDownloadAudioURL;
+            } else if (initialAction === 'stream' && initialStreamURL) {
+                if (videoPlayer) {
+                    videoPlayer.style.display = 'block';
+                    videoPlayer.querySelector('source').src = initialStreamURL;
+                    videoPlayer.querySelector('video').load();
+                }
+            }
         } else {
             // Hide info card and progress bar if no operation is active
             if (videoInfoCard) videoInfoCard.style.display = 'none';
@@ -436,13 +476,13 @@
 
         // Handle URL input change to fetch info immediately (optional, but good UX)
         urlInput.addEventListener('change', function() {
-            const currentUrl = urlInput.value;
-            if (currentUrl) {
-                // You could make an AJAX call here to /download/video/info
-                // and update the video info card dynamically without a full page reload.
-                // For simplicity, we'll rely on the form submission for now.
-                // Or, we can pre-fill the form with the last known good values.
-            }
+            // When the URL changes, clear previous results and hide player/progress
+            if (videoInfoCard) videoInfoCard.style.display = 'none';
+            if (progressContainer) progressContainer.style.display = 'none';
+            if (videoPlayer) videoPlayer.style.display = 'none';
+            closeSSE(); // Close any active SSE connection
+            updateProgressBar(0, 'Enter URL and select action', 'idle');
+            errorMessage.style.display = 'none';
         });
     </script>
 </body>

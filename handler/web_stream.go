@@ -48,7 +48,25 @@ func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressMan
 //	@Success		200	{string}	html	"HTML page for video streaming"
 //	@Router			/web [get]
 func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Request) {
-	err := h.template.Execute(w, nil)
+	// Initial render, no operation in progress
+	data := struct {
+		StreamURL        string
+		DownloadVideoURL string
+		DownloadAudioURL string
+		VideoInfoJSON    template.HTML
+		VideoInfo        *service.VideoInfo
+		ProgressID       string
+		Action           string
+	}{
+		StreamURL:        "",
+		DownloadVideoURL: "",
+		DownloadAudioURL: "",
+		VideoInfoJSON:    "",
+		VideoInfo:        nil,
+		ProgressID:       "",
+		Action:           "",
+	}
+	err := h.template.Execute(w, data)
 	if err != nil {
 		slog.Error("Failed to execute web stream template", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
