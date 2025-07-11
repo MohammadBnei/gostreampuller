@@ -7,10 +7,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url" // Import net/url for URL parsing
+	"net/url"
 	"os"
 	"strings"
-	"time" // For generating unique IDs
+	"time"
 
 	"gostreampuller/service"
 )
@@ -20,12 +20,11 @@ type WebStreamHandler struct {
 	downloader      *service.Downloader
 	indexTemplate   *template.Template // New template for the initial page
 	streamTemplate  *template.Template // Existing template for the streaming page
-	progressManager *service.ProgressManager // Added ProgressManager
+	progressManager *service.ProgressManager
 }
 
 // NewWebStreamHandler creates a new WebStreamHandler.
 func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressManager) *WebStreamHandler {
-	// Parse the HTML templates once during initialization
 	indexTmpl, err := template.ParseFiles("web/index.html")
 	if err != nil {
 		slog.Error("Failed to parse web index template", "error", err)
@@ -75,10 +74,6 @@ func (h *WebStreamHandler) ServeMainPage(w http.ResponseWriter, r *http.Request)
 //	@Param			url			query		string	true	"Video URL"
 //	@Param			progressID	query		string	true	"Unique ID for the operation to track"
 //	@Param			videoInfo	query		string	true	"JSON string of VideoInfo"
-//	@Param			action		query		string	false	"Action that led to this page (e.g., stream, download_video)"
-//	@Param			streamURL	query		string	false	"URL for direct video streaming"
-//	@Param			downloadVideoURL query	string	false	"URL for video download"
-//	@Param			downloadAudioURL query	string	false	"URL for audio download"
 //	@Success		200			{string}	html	"HTML page for video streaming"
 //	@Failure		400			{string}	string	"Bad Request"
 //	@Router			/web [get]
@@ -86,10 +81,6 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 	videoURL := r.URL.Query().Get("url")
 	progressID := r.URL.Query().Get("progressID")
 	videoInfoJSONStr := r.URL.Query().Get("videoInfo")
-	action := r.URL.Query().Get("action")
-	streamURL := r.URL.Query().Get("streamURL")
-	downloadVideoURL := r.URL.Query().Get("downloadVideoURL")
-	downloadAudioURL := r.URL.Query().Get("downloadAudioURL")
 
 	if videoURL == "" || progressID == "" || videoInfoJSONStr == "" {
 		slog.Error("Missing required query parameters for stream page", "url", videoURL, "progressID", progressID, "videoInfo", videoInfoJSONStr)
@@ -105,23 +96,15 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 	}
 
 	data := struct {
-		URL              string
-		StreamURL        string
-		DownloadVideoURL string
-		DownloadAudioURL string
-		VideoInfoJSON    template.HTML
-		VideoInfo        *service.VideoInfo
-		ProgressID       string
-		Action           string
+		URL           string
+		VideoInfoJSON template.HTML
+		VideoInfo     *service.VideoInfo
+		ProgressID    string
 	}{
-		URL:              videoURL,
-		StreamURL:        streamURL,
-		DownloadVideoURL: downloadVideoURL,
-		DownloadAudioURL: downloadAudioURL,
-		VideoInfoJSON:    template.HTML(videoInfoJSONStr),
-		VideoInfo:        &videoInfo,
-		ProgressID:       progressID,
-		Action:           action,
+		URL:           videoURL,
+		VideoInfoJSON: template.HTML(videoInfoJSONStr),
+		VideoInfo:     &videoInfo,
+		ProgressID:    progressID,
 	}
 	err := h.streamTemplate.Execute(w, data)
 	if err != nil {
@@ -168,9 +151,6 @@ func (h *WebStreamHandler) HandleLoadInfo(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Send a complete event for the info loading
-	h.progressManager.SendComplete(progressID, "Video information loaded.", videoInfo)
-
 	// Prepare data for redirection to /web
 	videoInfoJSON, err := json.Marshal(videoInfo)
 	if err != nil {
@@ -186,96 +166,6 @@ func (h *WebStreamHandler) HandleLoadInfo(w http.ResponseWriter, r *http.Request
 		url.QueryEscape(string(videoInfoJSON)),
 	)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
-}
-
-// HandleOperation handles the form submission for web-based video streaming/downloading.
-// This function now expects an AJAX request and returns JSON.
-//
-//	@Summary		Handle web operation request
-//	@Description	Processes the form submission for web-based video streaming or downloading.
-//	@Tags			web
-//	@Accept			x-www-form-urlencoded
-//	@Produce		json
-//	@Param			url			formData	string	true	"Video URL"
-//	@Param			resolution	formData	string	false	"Video Resolution (e.g., 480, 720, 1080)"
-//	@Param			codec		formData	string	false	"Video Codec (e.g., avc1, vp9)"
-//	@Param			audioQuality formData string false "Audio Quality (e.g., 128k, 192k)"
-//	@Param			action		formData	string	true	"Action to perform (stream, download_video, download_audio)"
-//	@Success		200			{object}	object	"Operation initiated successfully"
-//	@Failure		400			{object}	ErrorResponse	"Invalid request payload or missing URL"
-//	@Failure		500			{object}	ErrorResponse	"Internal server error during operation"
-//	@Router			/web [post]
-func (h *WebStreamHandler) HandleOperation(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		slog.Error("Failed to parse form data", "error", err)
-		http.Error(w, NewErrorResponse(fmt.Sprintf("Invalid request payload: %v", err)).ToJson(), http.StatusBadRequest)
-		return
-	}
-
-	videoURL := r.FormValue("url")
-	resolution := r.FormValue("resolution")
-	codec := r.FormValue("codec")
-	audioQuality := r.FormValue("audioQuality")
-	action := r.FormValue("action")
-
-	if videoURL == "" {
-		slog.Error("Missing URL in web operation request")
-		http.Error(w, NewErrorResponse("URL is required").ToJson(), http.StatusBadRequest)
-		return
-	}
-
-	// Generate a unique progress ID for this operation
-	progressID := fmt.Sprintf("%s-%d", action, time.Now().UnixNano())
-
-	// Fetch video info again to ensure we have the latest and to pass to the client
-	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), videoURL, progressID)
-	if err != nil {
-		slog.Error("Failed to get video info for web operation", "error", err, "url", videoURL)
-		http.Error(w, NewErrorResponse(fmt.Sprintf("Failed to get video information: %v", err)).ToJson(), http.StatusInternalServerError)
-		return
-	}
-
-	// Prepare response data
-	respData := map[string]interface{}{
-		"progressID": progressID,
-		"action":     action,
-		"videoInfo":  videoInfo,
-	}
-
-	// Construct URLs for the client to use for actual streaming/downloading
-	switch action {
-	case "stream":
-		streamURL := fmt.Sprintf("/web/play?url=%s&resolution=%s&codec=%s&progressID=%s",
-			url.QueryEscape(videoURL),
-			url.QueryEscape(resolution),
-			url.QueryEscape(codec),
-			url.QueryEscape(progressID),
-		)
-		respData["streamURL"] = streamURL
-	case "download_video":
-		downloadVideoURL := fmt.Sprintf("/web/download/video?url=%s&resolution=%s&codec=%s&progressID=%s",
-			url.QueryEscape(videoURL),
-			url.QueryEscape(resolution),
-			url.QueryEscape(codec),
-			url.QueryEscape(progressID),
-		)
-		respData["downloadVideoURL"] = downloadVideoURL
-	case "download_audio":
-		downloadAudioURL := fmt.Sprintf("/web/download/audio?url=%s&bitrate=%s&progressID=%s",
-			url.QueryEscape(videoURL),
-			url.QueryEscape(audioQuality),
-			url.QueryEscape(progressID),
-		)
-		respData["downloadAudioURL"] = downloadAudioURL
-	default:
-		slog.Error("Unknown action received", "action", action)
-		http.Error(w, NewErrorResponse("Unknown action").ToJson(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(respData)
-	slog.Info("Web operation initiated", "action", action, "url", videoURL, "progressID", progressID)
 }
 
 // ServeProgress handles Server-Sent Events (SSE) for progress updates.
@@ -333,7 +223,6 @@ func (h *WebStreamHandler) ServeProgress(w http.ResponseWriter, r *http.Request)
 }
 
 // PlayWebStream handles the actual video streaming for the web player.
-// This is a GET endpoint that receives parameters from the HandleWebStream POST.
 //
 //	@Summary		Play web stream
 //	@Description	Streams the video content directly to the browser based on query parameters.
