@@ -112,10 +112,12 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	// Generate a unique progress ID for this operation
 	progressID := fmt.Sprintf("op-%d", time.Now().UnixNano())
 
-	// Always fetch video info first, regardless of the action
+	// For 'load_info' action, we only fetch info and send a single complete event.
+	// For other actions, the downloader methods will send progress events.
 	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), videoURL, progressID)
 	if err != nil {
 		slog.Error("Failed to get video info for web stream", "error", err, "url", videoURL)
+		// Error event already sent by downloader.GetVideoInfo
 		http.Error(w, fmt.Sprintf("Failed to get video information: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -165,8 +167,8 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 		Action:           action, // So frontend knows which operation to start
 	}
 
-	// If the action is 'load_info', we just render the page with info and progressID,
-	// but don't trigger any stream/download. The frontend JS will handle showing the options.
+	// If the action is 'load_info', we send a complete event for info loading
+	// and then render the page. No further progress is expected from the server.
 	if action == "load_info" {
 		h.progressManager.SendComplete(progressID, "Video information loaded.", videoInfo)
 		err = h.template.Execute(w, data)
