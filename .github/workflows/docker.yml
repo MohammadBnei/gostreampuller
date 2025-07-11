@@ -65,6 +65,9 @@ jobs:
         with:
           go-version: stable
 
+      - name: Install tools
+        run: apt install yt-dlp ffmpeg -y
+
       - name: Test
         run: |
           make test-ci
