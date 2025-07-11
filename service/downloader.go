@@ -46,15 +46,15 @@ type VideoInfo struct {
 	UploadDate  string `json:"upload_date"` // YYYYMMDD
 	Thumbnail   string `json:"thumbnail"`   // URL to thumbnail
 	// Add fields for direct stream URL and file size
-	DirectStreamURL string `json:"url"` // The actual direct URL of the stream
-	FileSize        int64  `json:"filesize"`
-	FormatID        string `json:"format_id"`
-	FormatNote      string `json:"format_note"`
-	VCodec          string `json:"vcodec"`
-	ACodec          string `json:"acodec"`
+	DirectStreamURL string  `json:"url"` // The actual direct URL of the stream
+	FileSize        int64   `json:"filesize"`
+	FormatID        string  `json:"format_id"`
+	FormatNote      string  `json:"format_note"`
+	VCodec          string  `json:"vcodec"`
+	ACodec          string  `json:"acodec"`
 	FPS             float64 `json:"fps"`
-	Width           int    `json:"width"`
-	Height          int    `json:"height"`
+	Width           int     `json:"width"`
+	Height          int     `json:"height"`
 	// Formats is a slice of available formats, used by GetStreamInfo
 	Formats []VideoInfo `json:"formats"`
 }
