@@ -19,6 +19,26 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/": {
+            "get": {
+                "description": "Serves the initial HTML page for GoStreamPuller web interface.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Serve main web interface page",
+                "responses": {
+                    "200": {
+                        "description": "HTML page for URL input",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/download/audio": {
             "post": {
                 "description": "Downloads an audio file from a given URL to the server's download directory.",
@@ -324,6 +344,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/load-info": {
+            "post": {
+                "description": "Receives a video URL, fetches its metadata, and redirects the user to the main streaming/downloading page with the info pre-populated.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Load video information and redirect to stream page",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Video URL",
+                        "name": "url",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to /web with video info",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/stream/audio": {
             "post": {
                 "description": "Streams an audio file directly from the source URL.",
@@ -416,63 +480,104 @@ const docTemplate = `{
                 }
             }
         },
-        "/web/stream": {
+        "/web": {
             "get": {
-                "description": "Serves an HTML page that allows users to input a URL and stream video.",
+                "description": "Serves an HTML page that displays video information and allows streaming/downloading.",
                 "produces": [
                     "text/html"
                 ],
                 "tags": [
                     "web"
                 ],
-                "summary": "Serve web streaming page",
+                "summary": "Serve web streaming page with video info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Video URL",
+                        "name": "url",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique ID for the operation to track",
+                        "name": "progressID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "JSON string of VideoInfo",
+                        "name": "videoInfo",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "HTML page for video streaming",
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
-            },
-            "post": {
-                "description": "Processes the form submission for web-based video streaming, fetches video info, and redirects to the stream.",
-                "consumes": [
-                    "application/x-www-form-urlencoded"
-                ],
+            }
+        },
+        "/web/download/audio": {
+            "get": {
+                "description": "Streams audio content directly to the browser, triggering a download.",
                 "produces": [
-                    "text/html"
+                    "audio/mpeg"
                 ],
                 "tags": [
                     "web"
                 ],
-                "summary": "Handle web stream request",
+                "summary": "Download audio to browser",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Video URL",
+                        "description": "Audio URL",
                         "name": "url",
-                        "in": "formData",
+                        "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Video Resolution (e.g., 720, 1080)",
-                        "name": "resolution",
-                        "in": "formData"
+                        "description": "Output format (e.g., mp3, aac)",
+                        "name": "outputFormat",
+                        "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Video Codec (e.g., avc1, vp9)",
+                        "description": "Audio Codec (e.g., libmp3lame)",
                         "name": "codec",
-                        "in": "formData"
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Audio Bitrate (e.g., 128k)",
+                        "name": "bitrate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique ID for progress tracking",
+                        "name": "progressID",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "HTML page with streamed video and info",
+                        "description": "Successfully streamed audio for download",
                         "schema": {
-                            "type": "string"
+                            "type": "file"
                         }
                     },
                     "400": {
@@ -490,7 +595,67 @@ const docTemplate = `{
                 }
             }
         },
-        "/web/stream/play": {
+        "/web/download/video": {
+            "get": {
+                "description": "Streams video content directly to the browser, triggering a download.",
+                "produces": [
+                    "video/mp4"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Download video to browser",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Video URL",
+                        "name": "url",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Video Resolution (e.g., 720, 1080)",
+                        "name": "resolution",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Video Codec (e.g., avc1, vp9)",
+                        "name": "codec",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique ID for progress tracking",
+                        "name": "progressID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully streamed video for download",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/web/play": {
             "get": {
                 "description": "Streams the video content directly to the browser based on query parameters.",
                 "produces": [
@@ -519,6 +684,13 @@ const docTemplate = `{
                         "description": "Video Codec (e.g., avc1, vp9)",
                         "name": "codec",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique ID for progress tracking",
+                        "name": "progressID",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -536,6 +708,41 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/web/progress": {
+            "get": {
+                "description": "Establishes an SSE connection to stream real-time progress updates for download/stream operations.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Get progress updates via SSE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Unique ID for the operation to track",
+                        "name": "progressID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event stream of progress updates",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing progressID",
                         "schema": {
                             "type": "string"
                         }
@@ -715,12 +922,37 @@ const docTemplate = `{
         "service.VideoInfo": {
             "type": "object",
             "properties": {
+                "acodec": {
+                    "type": "string"
+                },
                 "duration": {
                     "description": "in seconds",
                     "type": "integer"
                 },
                 "ext": {
                     "type": "string"
+                },
+                "filesize": {
+                    "type": "integer"
+                },
+                "format_id": {
+                    "type": "string"
+                },
+                "format_note": {
+                    "type": "string"
+                },
+                "formats": {
+                    "description": "Formats is a slice of available formats, used by GetStreamInfo",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.VideoInfo"
+                    }
+                },
+                "fps": {
+                    "type": "number"
+                },
+                "height": {
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"
@@ -741,6 +973,16 @@ const docTemplate = `{
                 },
                 "uploader": {
                     "type": "string"
+                },
+                "url": {
+                    "description": "Add fields for direct stream URL and file size",
+                    "type": "string"
+                },
+                "vcodec": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         }

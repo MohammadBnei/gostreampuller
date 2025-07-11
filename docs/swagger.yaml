@@ -108,11 +108,28 @@ definitions:
     type: object
   service.VideoInfo:
     properties:
+      acodec:
+        type: string
       duration:
         description: in seconds
         type: integer
       ext:
         type: string
+      filesize:
+        type: integer
+      format_id:
+        type: string
+      format_note:
+        type: string
+      formats:
+        description: Formats is a slice of available formats, used by GetStreamInfo
+        items:
+          $ref: '#/definitions/service.VideoInfo'
+        type: array
+      fps:
+        type: number
+      height:
+        type: integer
       id:
         type: string
       original_url:
@@ -127,6 +144,13 @@ definitions:
         type: string
       uploader:
         type: string
+      url:
+        description: Add fields for direct stream URL and file size
+        type: string
+      vcodec:
+        type: string
+      width:
+        type: integer
     type: object
 info:
   contact:
@@ -138,6 +162,19 @@ info:
   title: GoStreamPuller API
   version: "1.0"
 paths:
+  /:
+    get:
+      description: Serves the initial HTML page for GoStreamPuller web interface.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML page for URL input
+          schema:
+            type: string
+      summary: Serve main web interface page
+      tags:
+      - web
   /download/audio:
     post:
       consumes:
@@ -342,6 +379,36 @@ paths:
       summary: Get video information
       tags:
       - download
+  /load-info:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Receives a video URL, fetches its metadata, and redirects the user
+        to the main streaming/downloading page with the info pre-populated.
+      parameters:
+      - description: Video URL
+        in: formData
+        name: url
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "302":
+          description: Redirect to /web with video info
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Load video information and redirect to stream page
+      tags:
+      - web
   /stream/audio:
     post:
       consumes:
@@ -402,10 +469,26 @@ paths:
       summary: Stream a video
       tags:
       - stream
-  /web/stream:
+  /web:
     get:
-      description: Serves an HTML page that allows users to input a URL and stream
-        video.
+      description: Serves an HTML page that displays video information and allows
+        streaming/downloading.
+      parameters:
+      - description: Video URL
+        in: query
+        name: url
+        required: true
+        type: string
+      - description: Unique ID for the operation to track
+        in: query
+        name: progressID
+        required: true
+        type: string
+      - description: JSON string of VideoInfo
+        in: query
+        name: videoInfo
+        required: true
+        type: string
       produces:
       - text/html
       responses:
@@ -413,35 +496,46 @@ paths:
           description: HTML page for video streaming
           schema:
             type: string
-      summary: Serve web streaming page
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Serve web streaming page with video info
       tags:
       - web
-    post:
-      consumes:
-      - application/x-www-form-urlencoded
-      description: Processes the form submission for web-based video streaming, fetches
-        video info, and redirects to the stream.
+  /web/download/audio:
+    get:
+      description: Streams audio content directly to the browser, triggering a download.
       parameters:
-      - description: Video URL
-        in: formData
+      - description: Audio URL
+        in: query
         name: url
         required: true
         type: string
-      - description: Video Resolution (e.g., 720, 1080)
-        in: formData
-        name: resolution
+      - description: Output format (e.g., mp3, aac)
+        in: query
+        name: outputFormat
         type: string
-      - description: Video Codec (e.g., avc1, vp9)
-        in: formData
+      - description: Audio Codec (e.g., libmp3lame)
+        in: query
         name: codec
         type: string
+      - description: Audio Bitrate (e.g., 128k)
+        in: query
+        name: bitrate
+        type: string
+      - description: Unique ID for progress tracking
+        in: query
+        name: progressID
+        required: true
+        type: string
       produces:
-      - text/html
+      - audio/mpeg
       responses:
         "200":
-          description: HTML page with streamed video and info
+          description: Successfully streamed audio for download
           schema:
-            type: string
+            type: file
         "400":
           description: Bad Request
           schema:
@@ -450,10 +544,50 @@ paths:
           description: Internal Server Error
           schema:
             type: string
-      summary: Handle web stream request
+      summary: Download audio to browser
       tags:
       - web
-  /web/stream/play:
+  /web/download/video:
+    get:
+      description: Streams video content directly to the browser, triggering a download.
+      parameters:
+      - description: Video URL
+        in: query
+        name: url
+        required: true
+        type: string
+      - description: Video Resolution (e.g., 720, 1080)
+        in: query
+        name: resolution
+        type: string
+      - description: Video Codec (e.g., avc1, vp9)
+        in: query
+        name: codec
+        type: string
+      - description: Unique ID for progress tracking
+        in: query
+        name: progressID
+        required: true
+        type: string
+      produces:
+      - video/mp4
+      responses:
+        "200":
+          description: Successfully streamed video for download
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Download video to browser
+      tags:
+      - web
+  /web/play:
     get:
       description: Streams the video content directly to the browser based on query
         parameters.
@@ -471,6 +605,11 @@ paths:
         in: query
         name: codec
         type: string
+      - description: Unique ID for progress tracking
+        in: query
+        name: progressID
+        required: true
+        type: string
       produces:
       - video/mp4
       responses:
@@ -487,6 +626,30 @@ paths:
           schema:
             type: string
       summary: Play web stream
+      tags:
+      - web
+  /web/progress:
+    get:
+      description: Establishes an SSE connection to stream real-time progress updates
+        for download/stream operations.
+      parameters:
+      - description: Unique ID for the operation to track
+        in: query
+        name: progressID
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: Event stream of progress updates
+          schema:
+            type: string
+        "400":
+          description: Missing progressID
+          schema:
+            type: string
+      summary: Get progress updates via SSE
       tags:
       - web
 schemes:

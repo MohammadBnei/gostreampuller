@@ -65,9 +65,9 @@ type VideoInfo struct {
 // This is for general info, not necessarily for direct streaming.
 func (d *Downloader) GetVideoInfo(ctx context.Context, url string, progressID string) (*VideoInfo, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Fetching video information...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Fetching video information...",
 		Percentage: 0,
 	})
 
@@ -98,11 +98,11 @@ func (d *Downloader) GetVideoInfo(ctx context.Context, url string, progressID st
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "info_fetched",
-		Message: "Video information fetched successfully.",
+		ID:         progressID,
+		Status:     "info_fetched",
+		Message:    "Video information fetched successfully.",
 		Percentage: 10,
-		VideoInfo: &videoInfo,
+		VideoInfo:  &videoInfo,
 	})
 	return &videoInfo, nil
 }
@@ -112,9 +112,9 @@ func (d *Downloader) GetVideoInfo(ctx context.Context, url string, progressID st
 // This method is still useful for getting detailed format information, even if not directly proxying.
 func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution string, codec string, progressID string) (*VideoInfo, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_stream_info",
-		Message: "Fetching detailed stream information...",
+		ID:         progressID,
+		Status:     "fetching_stream_info",
+		Message:    "Fetching detailed stream information...",
 		Percentage: 0,
 	})
 
@@ -207,11 +207,11 @@ func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution s
 	bestFormat.Thumbnail = fullInfo.Thumbnail
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "stream_info_fetched",
-		Message: "Detailed stream information fetched.",
+		ID:         progressID,
+		Status:     "stream_info_fetched",
+		Message:    "Detailed stream information fetched.",
 		Percentage: 10,
-		VideoInfo: bestFormat,
+		VideoInfo:  bestFormat,
 	})
 	return bestFormat, nil
 }
@@ -220,9 +220,9 @@ func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution s
 // It returns the path to the downloaded file and its metadata.
 func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format string, resolution string, codec string, progressID string) (string, *VideoInfo, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Fetching video information for download...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Fetching video information for download...",
 		Percentage: 0,
 	})
 
@@ -232,9 +232,9 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "downloading",
-		Message: "Downloading video...",
+		ID:         progressID,
+		Status:     "downloading",
+		Message:    "Downloading video...",
 		Percentage: 25,
 	})
 
@@ -256,7 +256,7 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 	downloadArgs := []string{
 		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
 		"--output", finalFilePath,
-		"--no-progress", // We'll handle progress via stderr parsing if needed, or just stages
+		"--no-progress",          // We'll handle progress via stderr parsing if needed, or just stages
 		"--no-playlist",          // Assume single video download
 		"--recode-video", format, // Instruct yt-dlp to convert to the desired format
 		url,
@@ -291,9 +291,9 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 // It returns the path to the downloaded file and its metadata.
 func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string, progressID string) (string, *VideoInfo, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Fetching audio information for download...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Fetching audio information for download...",
 		Percentage: 0,
 	})
 
@@ -303,9 +303,9 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "downloading",
-		Message: "Downloading audio...",
+		ID:         progressID,
+		Status:     "downloading",
+		Message:    "Downloading audio...",
 		Percentage: 25,
 	})
 
@@ -363,9 +363,9 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 // StreamVideo streams video from the given URL by piping yt-dlp output.
 func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string, progressID string) (io.ReadCloser, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Preparing video stream...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Preparing video stream...",
 		Percentage: 0,
 	})
 
@@ -376,11 +376,11 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "streaming",
-		Message: "Starting video stream...",
+		ID:         progressID,
+		Status:     "streaming",
+		Message:    "Starting video stream...",
 		Percentage: 25,
-		VideoInfo: videoInfo, // Send video info with the streaming event
+		VideoInfo:  videoInfo, // Send video info with the streaming event
 	})
 
 	if format == "" {
@@ -429,9 +429,9 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 // StreamAudio streams audio from the given URL by piping yt-dlp output.
 func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat string, codec string, bitrate string, progressID string) (io.ReadCloser, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Preparing audio stream...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Preparing audio stream...",
 		Percentage: 0,
 	})
 
@@ -442,11 +442,11 @@ func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat s
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "streaming",
-		Message: "Starting audio stream...",
+		ID:         progressID,
+		Status:     "streaming",
+		Message:    "Starting audio stream...",
 		Percentage: 25,
-		VideoInfo: videoInfo, // Send video info with the streaming event
+		VideoInfo:  videoInfo, // Send video info with the streaming event
 	})
 
 	if outputFormat == "" {
@@ -496,9 +496,9 @@ func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat s
 // Returns the path to the temporary file and any error.
 func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, format string, resolution string, codec string, progressID string) (string, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Fetching video information for download...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Fetching video information for download...",
 		Percentage: 0,
 	})
 
@@ -509,11 +509,11 @@ func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, fo
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "downloading",
-		Message: "Downloading video to server...",
+		ID:         progressID,
+		Status:     "downloading",
+		Message:    "Downloading video to server...",
 		Percentage: 25,
-		VideoInfo: videoInfo, // Send video info with the downloading event
+		VideoInfo:  videoInfo, // Send video info with the downloading event
 	})
 
 	if format == "" {
@@ -553,11 +553,11 @@ func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, fo
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "download_complete",
-		Message: "Video downloaded to server. Preparing to serve...",
+		ID:         progressID,
+		Status:     "download_complete",
+		Message:    "Video downloaded to server. Preparing to serve...",
 		Percentage: 75,
-		VideoInfo: videoInfo,
+		VideoInfo:  videoInfo,
 	})
 	slog.Info(fmt.Sprintf("Video downloaded to: %s", finalFilePath))
 	return finalFilePath, nil
@@ -567,9 +567,9 @@ func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, fo
 // Returns the path to the temporary file and any error.
 func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string, progressID string) (string, error) {
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "fetching_info",
-		Message: "Fetching audio information for download...",
+		ID:         progressID,
+		Status:     "fetching_info",
+		Message:    "Fetching audio information for download...",
 		Percentage: 0,
 	})
 
@@ -580,11 +580,11 @@ func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, ou
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "downloading",
-		Message: "Downloading audio to server...",
+		ID:         progressID,
+		Status:     "downloading",
+		Message:    "Downloading audio to server...",
 		Percentage: 25,
-		VideoInfo: videoInfo, // Send video info with the downloading event
+		VideoInfo:  videoInfo, // Send video info with the downloading event
 	})
 
 	if outputFormat == "" {
@@ -626,11 +626,11 @@ func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, ou
 	}
 
 	d.progressManager.SendEvent(ProgressEvent{
-		ID:      progressID,
-		Status:  "download_complete",
-		Message: "Audio downloaded to server. Preparing to serve...",
+		ID:         progressID,
+		Status:     "download_complete",
+		Message:    "Audio downloaded to server. Preparing to serve...",
 		Percentage: 75,
-		VideoInfo: videoInfo,
+		VideoInfo:  videoInfo,
 	})
 	slog.Info(fmt.Sprintf("Audio downloaded to: %s", finalFilePath))
 	return finalFilePath, nil
