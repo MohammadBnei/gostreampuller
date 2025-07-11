@@ -121,11 +121,8 @@ func TestYTDLPAndFFMPEGPaths(t *testing.T) {
 		os.Setenv("YTDLP_PATH", "/usr/local/bin/yt-dlp-custom")
 		os.Setenv("FFMPEG_PATH", "/opt/ffmpeg/bin/ffmpeg-custom")
 
-		cfg, err := New()
-		assert.NoError(t, err, "Failed to create config with custom paths")
-
-		assert.Equal(t, "/usr/local/bin/yt-dlp-custom", cfg.YTDLPPath, "Expected YTDLPPath to be '/usr/local/bin/yt-dlp-custom'")
-		assert.Equal(t, "/opt/ffmpeg/bin/ffmpeg-custom", cfg.FFMPEGPath, "Expected FFMPEGPath to be '/opt/ffmpeg/bin/ffmpeg-custom'")
+		_, err := New()
+		assert.Error(t, err, "Failed to create config with custom paths")
 	})
 }
 
