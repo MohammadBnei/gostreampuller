@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url" // Import net/url for URL parsing
+	"strconv"
+	"strings"
 
 	"gostreampuller/service"
 )
@@ -84,7 +86,7 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 
 	slog.Info("Attempting to get video info for web stream", "url", videoURL)
 
-	// Get video info
+	// Get video info (using GetVideoInfo for general metadata)
 	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), videoURL)
 	if err != nil {
 		slog.Error("Failed to get video info for web stream", "error", err, "url", videoURL)
@@ -93,13 +95,21 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Prepare data for the template
-	// We'll pass the video info and a URL for the actual stream endpoint
 	// The stream endpoint will be a GET request with URL, resolution, and codec as query parameters
 	streamURL := fmt.Sprintf("/web/play?url=%s&resolution=%s&codec=%s",
 		url.QueryEscape(videoURL),
 		url.QueryEscape(resolution),
 		url.QueryEscape(codec),
 	)
+
+	// Direct download URLs
+	downloadVideoURL := fmt.Sprintf("/web/download/video?url=%s&resolution=%s&codec=%s",
+		url.QueryEscape(videoURL),
+		url.QueryEscape(resolution),
+		url.QueryEscape(codec),
+	)
+	downloadAudioURL := fmt.Sprintf("/web/download/audio?url=%s", url.QueryEscape(videoURL))
+
 
 	// Marshal videoInfo to pretty JSON for display
 	videoInfoJSON, err := json.MarshalIndent(videoInfo, "", "  ")
@@ -109,13 +119,17 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	}
 
 	data := struct {
-		StreamURL     string
-		VideoInfoJSON template.HTML // Use template.HTML to prevent escaping
-		VideoInfo     *service.VideoInfo
+		StreamURL        string
+		DownloadVideoURL string
+		DownloadAudioURL string
+		VideoInfoJSON    template.HTML // Use template.HTML to prevent escaping
+		VideoInfo        *service.VideoInfo
 	}{
-		StreamURL:     streamURL,
-		VideoInfoJSON: template.HTML(videoInfoJSON),
-		VideoInfo:     videoInfo,
+		StreamURL:        streamURL,
+		DownloadVideoURL: downloadVideoURL,
+		DownloadAudioURL: downloadAudioURL,
+		VideoInfoJSON:    template.HTML(videoInfoJSON),
+		VideoInfo:        videoInfo,
 	}
 
 	// Re-execute the template with the stream URL and video info
@@ -154,6 +168,7 @@ func (h *WebStreamHandler) PlayWebStream(w http.ResponseWriter, r *http.Request)
 
 	slog.Info("Attempting to stream video for web player", "url", videoURL, "resolution", resolution, "codec", codec)
 
+	// Use the re-enabled StreamVideo method
 	readCloser, err := h.downloader.StreamVideo(r.Context(), videoURL, "mp4", resolution, codec)
 	if err != nil {
 		slog.Error("Failed to stream video for web player", "error", err, "url", videoURL)
@@ -172,4 +187,139 @@ func (h *WebStreamHandler) PlayWebStream(w http.ResponseWriter, r *http.Request)
 		// Client might see a broken stream.
 	}
 	slog.Info("Web video stream finished", "url", videoURL)
+}
+
+// DownloadVideoToBrowser streams video directly to the browser for download.
+//
+//	@Summary		Download video to browser
+//	@Description	Streams video content directly to the browser, triggering a download.
+//	@Tags			web
+//	@Produce		video/mp4
+//	@Param			url			query		string	true	"Video URL"
+//	@Param			resolution	query		string	false	"Video Resolution (e.g., 720, 1080)"
+//	@Param			codec		query		string	false	"Video Codec (e.g., avc1, vp9)"
+//	@Success		200			{file}		file	"Successfully streamed video for download"
+//	@Failure		400			{string}	string	"Bad Request"
+//	@Failure		500			{string}	string	"Internal Server Error"
+//	@Router			/web/download/video [get]
+func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http.Request) {
+	videoURL := r.URL.Query().Get("url")
+	resolution := r.URL.Query().Get("resolution")
+	codec := r.URL.Query().Get("codec")
+
+	if videoURL == "" {
+		slog.Error("Missing URL in video download request")
+		http.Error(w, "URL is required", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("Attempting to stream video for direct download", "url", videoURL, "resolution", resolution, "codec", codec)
+
+	// Get video info to suggest a filename
+	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), videoURL)
+	if err != nil {
+		slog.Warn("Could not get video info for filename suggestion, proceeding without it", "error", err)
+		videoInfo = &service.VideoInfo{Title: "video", Ext: "mp4"} // Fallback
+	}
+
+	// Use the re-enabled StreamVideo method
+	readCloser, err := h.downloader.StreamVideo(r.Context(), videoURL, "mp4", resolution, codec)
+	if err != nil {
+		slog.Error("Failed to stream video for direct download", "error", err, "url", videoURL)
+		http.Error(w, fmt.Sprintf("Failed to download video: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer readCloser.Close()
+
+	// Set headers for download
+	filename := fmt.Sprintf("%s.%s", sanitizeFilename(videoInfo.Title), "mp4")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", "video/mp4")
+	w.Header().Set("Transfer-Encoding", "chunked") // Use chunked for unknown size
+
+	slog.Info("Starting direct video download stream", "url", videoURL, "filename", filename)
+	if _, err := io.Copy(w, readCloser); err != nil {
+		slog.Error("Error while streaming video for direct download", "error", err, "url", videoURL)
+	}
+	slog.Info("Direct video download stream finished", "url", videoURL)
+}
+
+// DownloadAudioToBrowser streams audio directly to the browser for download.
+//
+//	@Summary		Download audio to browser
+//	@Description	Streams audio content directly to the browser, triggering a download.
+//	@Tags			web
+//	@Produce		audio/mpeg
+//	@Param			url			query		string	true	"Audio URL"
+//	@Param			outputFormat	query		string	false	"Output format (e.g., mp3, aac)"
+//	@Param			codec		query		string	false	"Audio Codec (e.g., libmp3lame)"
+//	@Param			bitrate		query		string	false	"Audio Bitrate (e.g., 128k)"
+//	@Success		200			{file}		file	"Successfully streamed audio for download"
+//	@Failure		400			{string}	string	"Bad Request"
+//	@Failure		500			{string}	string	"Internal Server Error"
+//	@Router			/web/download/audio [get]
+func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http.Request) {
+	audioURL := r.URL.Query().Get("url")
+	outputFormat := r.URL.Query().Get("outputFormat")
+	codec := r.URL.Query().Get("codec")
+	bitrate := r.URL.Query().Get("bitrate")
+
+	if audioURL == "" {
+		slog.Error("Missing URL in audio download request")
+		http.Error(w, "URL is required", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("Attempting to stream audio for direct download", "url", audioURL, "outputFormat", outputFormat)
+
+	// Get video info to suggest a filename
+	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), audioURL)
+	if err != nil {
+		slog.Warn("Could not get video info for filename suggestion, proceeding without it", "error", err)
+		videoInfo = &service.VideoInfo{Title: "audio", Ext: "mp3"} // Fallback
+	}
+
+	// Use the StreamAudio method
+	readCloser, err := h.downloader.StreamAudio(r.Context(), audioURL, outputFormat, codec, bitrate)
+	if err != nil {
+		slog.Error("Failed to stream audio for direct download", "error", err, "url", audioURL)
+		http.Error(w, fmt.Sprintf("Failed to download audio: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer readCloser.Close()
+
+	// Set headers for download
+	if outputFormat == "" {
+		outputFormat = "mp3" // Default for content-type
+	}
+	filename := fmt.Sprintf("%s.%s", sanitizeFilename(videoInfo.Title), outputFormat)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", fmt.Sprintf("audio/%s", outputFormat)) // e.g., audio/mp3
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	slog.Info("Starting direct audio download stream", "url", audioURL, "filename", filename)
+	if _, err := io.Copy(w, readCloser); err != nil {
+		slog.Error("Error while streaming audio for direct download", "error", err, "url", audioURL)
+	}
+	slog.Info("Direct audio download stream finished", "url", audioURL)
+}
+
+// sanitizeFilename removes characters that are not allowed in filenames.
+func sanitizeFilename(s string) string {
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	s = strings.ReplaceAll(s, ":", "_")
+	s = strings.ReplaceAll(s, "*", "_")
+	s = strings.ReplaceAll(s, "?", "_")
+	s = strings.ReplaceAll(s, "\"", "_")
+	s = strings.ReplaceAll(s, "<", "_")
+	s = strings.ReplaceAll(s, ">", "_")
+	s = strings.ReplaceAll(s, "|", "_")
+	s = strings.ReplaceAll(s, " ", "_") // Replace spaces with underscores
+	s = strings.ReplaceAll(s, "__", "_") // Replace double underscores
+	s = strings.Trim(s, "_") // Trim leading/trailing underscores
+	if len(s) > 200 { // Limit filename length
+		s = s[:200]
+	}
+	return s
 }

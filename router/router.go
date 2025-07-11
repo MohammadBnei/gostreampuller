@@ -71,6 +71,8 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
 	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
 	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
+	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // New direct video download
+	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // New direct audio download
 
 	return &Router{
 		Mux: mux,

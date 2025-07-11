@@ -49,6 +49,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
+            margin-right: 10px; /* Space between buttons */
         }
         button:hover {
             background-color: #0056b3;
@@ -73,6 +74,11 @@
             margin-top: 20px;
             border-top: 1px solid #eee;
             padding-top: 20px;
+        }
+        .download-buttons {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
         }
     </style>
 </head>
@@ -100,6 +106,15 @@
                     <source src="{{ .StreamURL }}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
+            </div>
+
+            <div class="download-buttons">
+                <a href="{{ .DownloadVideoURL }}" download>
+                    <button type="button">Download Video</button>
+                </a>
+                <a href="{{ .DownloadAudioURL }}" download>
+                    <button type="button">Download Audio</button>
+                </a>
             </div>
 
             <div class="info-section">

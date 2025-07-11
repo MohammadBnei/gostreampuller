@@ -44,6 +44,16 @@ type VideoInfo struct {
 	Uploader    string `json:"uploader"`
 	UploadDate  string `json:"upload_date"` // YYYYMMDD
 	Thumbnail   string `json:"thumbnail"`   // URL to thumbnail
+	// Add fields for direct stream URL and file size (though not used for direct piping)
+	DirectStreamURL string `json:"url"` // The actual direct URL of the stream
+	FileSize        int64  `json:"filesize"`
+	FormatID        string `json:"format_id"`
+	FormatNote      string `json:"format_note"`
+	VCodec          string `json:"vcodec"`
+	ACodec          string `json:"acodec"`
+	FPS             float64 `json:"fps"`
+	Width           int    `json:"width"`
+	Height          int    `json:"height"`
 }
 
 // GetVideoInfo fetches video metadata without downloading the file.
@@ -185,6 +195,7 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 }
 
 // StreamVideo streams video from the given URL.
+// This method is re-enabled to provide a direct pipe for streaming/downloading.
 func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string) (io.ReadCloser, error) {
 	if format == "" {
 		format = "mp4"
@@ -202,7 +213,7 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 	// This tells yt-dlp to select the best video/audio and then recode it to the desired format.
 	ytDLPArgs := []string{
 		"--downloader", "ffmpeg",
-		"--format", fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best", resolution),
+		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
 		"-o", "-", // Output to stdout
 		url,
 	}
