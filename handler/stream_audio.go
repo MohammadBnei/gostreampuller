@@ -57,7 +57,8 @@ func (h *StreamAudioHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("Attempting to stream audio", "url", req.URL, "outputFormat", req.OutputFormat, "codec", req.Codec, "bitrate", req.Bitrate)
 
-	readCloser, err := h.downloader.StreamAudio(r.Context(), req.URL, req.OutputFormat, req.Codec, req.Bitrate)
+	// Pass an empty string for progressID as this API endpoint doesn't have an SSE client
+	readCloser, err := h.downloader.StreamAudio(r.Context(), req.URL, req.OutputFormat, req.Codec, req.Bitrate, "")
 	if err != nil {
 		slog.Error("Failed to stream audio", "error", err, "url", req.URL)
 		http.Error(w, NewErrorResponse(fmt.Sprintf("Failed to stream audio: %v", err)).ToJson(), http.StatusInternalServerError)

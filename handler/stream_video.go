@@ -57,7 +57,8 @@ func (h *StreamVideoHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("Attempting to stream video", "url", req.URL, "format", req.Format, "resolution", req.Resolution, "codec", req.Codec)
 
-	readCloser, err := h.downloader.StreamVideo(r.Context(), req.URL, req.Format, req.Resolution, req.Codec)
+	// Pass an empty string for progressID as this API endpoint doesn't have an SSE client
+	readCloser, err := h.downloader.StreamVideo(r.Context(), req.URL, req.Format, req.Resolution, req.Codec, "")
 	if err != nil {
 		slog.Error("Failed to stream video", "error", err, "url", req.URL)
 		http.Error(w, NewErrorResponse(fmt.Sprintf("Failed to stream video: %v", err)).ToJson(), http.StatusInternalServerError)

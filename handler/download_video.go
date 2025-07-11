@@ -65,7 +65,8 @@ func (h *DownloadVideoHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("Attempting to download video", "url", req.URL, "format", req.Format, "resolution", req.Resolution, "codec", req.Codec)
 
-	filePath, videoInfo, err := h.downloader.DownloadVideoToFile(r.Context(), req.URL, req.Format, req.Resolution, req.Codec)
+	// Pass an empty string for progressID as this API endpoint doesn't have an SSE client
+	filePath, videoInfo, err := h.downloader.DownloadVideoToFile(r.Context(), req.URL, req.Format, req.Resolution, req.Codec, "")
 	if err != nil {
 		slog.Error("Failed to download video", "error", err, "url", req.URL)
 		http.Error(w, NewErrorResponse(fmt.Sprintf("Failed to download video: %v", err)).ToJson(), http.StatusInternalServerError)
@@ -157,7 +158,8 @@ func (h *DownloadVideoHandler) GetVideoInfo(w http.ResponseWriter, r *http.Reque
 
 	slog.Info("Attempting to get video info", "url", req.URL)
 
-	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), req.URL)
+	// Pass an empty string for progressID as this API endpoint doesn't have an SSE client
+	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), req.URL, "")
 	if err != nil {
 		slog.Error("Failed to get video info", "error", err, "url", req.URL)
 		http.Error(w, NewErrorResponse(fmt.Sprintf("Failed to get video info: %v", err)).ToJson(), http.StatusInternalServerError)

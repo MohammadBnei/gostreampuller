@@ -66,7 +66,8 @@ func (h *DownloadAudioHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("Attempting to download audio", "url", req.URL, "outputFormat", req.OutputFormat, "codec", req.Codec, "bitrate", req.Bitrate)
 
-	filePath, videoInfo, err := h.downloader.DownloadAudioToFile(r.Context(), req.URL, req.OutputFormat, req.Codec, req.Bitrate)
+	// Pass an empty string for progressID as this API endpoint doesn't have an SSE client
+	filePath, videoInfo, err := h.downloader.DownloadAudioToFile(r.Context(), req.URL, req.OutputFormat, req.Codec, req.Bitrate, "")
 	if err != nil {
 		slog.Error("Failed to download audio", "error", err, "url", req.URL)
 		http.Error(w, NewErrorResponse(fmt.Sprintf("Failed to download audio: %v", err)).ToJson(), http.StatusInternalServerError)
