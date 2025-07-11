@@ -36,7 +36,8 @@ func New(cfg *config.Config) *Router {
 	webStreamHandler := handler.NewWebStreamHandler(downloader) // New web stream handler
 
 	// Register routes
-	mux.HandleFunc("/health", healthHandler.Handle)
+	// Register more specific paths first, or make them method-specific
+	mux.HandleFunc("GET /health", healthHandler.Handle) // Made method-specific
 
 	// Download routes
 	mux.HandleFunc("POST /download/video", downloadVideoHandler.Handle)
@@ -52,9 +53,10 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("POST /stream/audio", streamAudioHandler.Handle)
 
 	// Web Stream routes - root path for the form, /play for the actual stream
-	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage)
-	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)
+	// These should be registered after more specific paths to avoid conflicts
 	mux.HandleFunc("GET /play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
+	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)
+	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage) // This should be the most general GET route
 
 	// Serve Swagger UI
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
