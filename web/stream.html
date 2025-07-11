@@ -41,6 +41,11 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        .form-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px; /* Space between buttons */
+        }
         button {
             background-color: #007bff;
             color: white;
@@ -49,7 +54,6 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            margin-right: 10px; /* Space between buttons */
         }
         button:hover {
             background-color: #0056b3;
@@ -75,18 +79,13 @@
             border-top: 1px solid #eee;
             padding-top: 20px;
         }
-        .download-buttons {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>GoStreamPuller - Web Stream</h1>
 
-        <form action="/web" method="post">
+        <form id="streamForm" action="/web" method="post">
             <label for="url">Video URL:</label>
             <input type="text" id="url" name="url" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required value="{{ .VideoInfo.OriginalURL }}">
 
@@ -96,7 +95,11 @@
             <label for="codec">Codec (e.g., avc1, vp9):</label>
             <input type="text" id="codec" name="codec" placeholder="Optional, default: avc1">
 
-            <button type="submit">Stream Video</button>
+            <div class="form-actions">
+                <button type="submit" name="action" value="stream">Stream Video</button>
+                <button type="submit" name="action" value="download_video">Download Video</button>
+                <button type="submit" name="action" value="download_audio">Download Audio</button>
+            </div>
         </form>
 
         {{ if .StreamURL }}
@@ -108,20 +111,45 @@
                 </video>
             </div>
 
-            <div class="download-buttons">
-                <a href="{{ .DownloadVideoURL }}" download>
-                    <button type="button">Download Video</button>
-                </a>
-                <a href="{{ .DownloadAudioURL }}" download>
-                    <button type="button">Download Audio</button>
-                </a>
-            </div>
-
             <div class="info-section">
                 <h2>Video Information</h2>
                 <pre>{{ .VideoInfoJSON }}</pre>
             </div>
         {{ end }}
     </div>
+
+    <script>
+        document.getElementById('streamForm').addEventListener('submit', function(event) {
+            const form = event.target;
+            const actionButton = event.submitter; // The button that was clicked
+
+            if (actionButton && actionButton.name === 'action') {
+                const url = form.elements['url'].value;
+                const resolution = form.elements['resolution'].value;
+                const codec = form.elements['codec'].value;
+
+                let targetUrl = '';
+                switch (actionButton.value) {
+                    case 'stream':
+                        // Form will submit to /web (POST) which then redirects to /web/play
+                        return; // Let the form submit normally
+                    case 'download_video':
+                        targetUrl = `/web/download/video?url=${encodeURIComponent(url)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(codec)}`;
+                        break;
+                    case 'download_audio':
+                        targetUrl = `/web/download/audio?url=${encodeURIComponent(url)}`;
+                        // For audio, we might want to add outputFormat, codec, bitrate if we add those fields to the form
+                        break;
+                    default:
+                        return; // Unknown action, let form submit normally
+                }
+
+                if (targetUrl) {
+                    event.preventDefault(); // Prevent default form submission
+                    window.location.href = targetUrl; // Redirect to the download URL
+                }
+            }
+        });
+    </script>
 </body>
 </html>

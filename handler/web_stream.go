@@ -62,6 +62,7 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 //	@Param			url			formData	string	true	"Video URL"
 //	@Param			resolution	formData	string	false	"Video Resolution (e.g., 720, 1080)"
 //	@Param			codec		formData	string	false	"Video Codec (e.g., avc1, vp9)"
+//	@Param			action		formData	string	true	"Action to perform (stream, download_video, download_audio)"
 //	@Success		200			{string}	html	"HTML page with streamed video and info"
 //	@Failure		400			{string}	string	"Bad Request"
 //	@Failure		500			{string}	string	"Internal Server Error"
@@ -76,6 +77,7 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	videoURL := r.FormValue("url")
 	resolution := r.FormValue("resolution")
 	codec := r.FormValue("codec")
+	action := r.FormValue("action") // Get the action from the clicked button
 
 	if videoURL == "" {
 		slog.Error("Missing URL in web stream request")
@@ -83,6 +85,22 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// If the action is a direct download, redirect immediately
+	// The JavaScript in web/stream.html handles this client-side for now,
+	// but this server-side check is a good fallback/alternative.
+	if action == "download_video" {
+		http.Redirect(w, r, fmt.Sprintf("/web/download/video?url=%s&resolution=%s&codec=%s",
+			url.QueryEscape(videoURL),
+			url.QueryEscape(resolution),
+			url.QueryEscape(codec)), http.StatusFound)
+		return
+	}
+	if action == "download_audio" {
+		http.Redirect(w, r, fmt.Sprintf("/web/download/audio?url=%s", url.QueryEscape(videoURL)), http.StatusFound)
+		return
+	}
+
+	// If action is "stream" or not specified, proceed with streaming logic
 	slog.Info("Attempting to get video info for web stream", "url", videoURL)
 
 	// Get video info (using GetVideoInfo for general metadata)
@@ -94,20 +112,11 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Prepare data for the template
-	// The stream endpoint will be a GET request with URL, resolution, and codec as query parameters
 	streamURL := fmt.Sprintf("/web/play?url=%s&resolution=%s&codec=%s",
 		url.QueryEscape(videoURL),
 		url.QueryEscape(resolution),
 		url.QueryEscape(codec),
 	)
-
-	// Direct download URLs
-	downloadVideoURL := fmt.Sprintf("/web/download/video?url=%s&resolution=%s&codec=%s",
-		url.QueryEscape(videoURL),
-		url.QueryEscape(resolution),
-		url.QueryEscape(codec),
-	)
-	downloadAudioURL := fmt.Sprintf("/web/download/audio?url=%s", url.QueryEscape(videoURL))
 
 	// Marshal videoInfo to pretty JSON for display
 	videoInfoJSON, err := json.MarshalIndent(videoInfo, "", "  ")
@@ -117,17 +126,13 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	}
 
 	data := struct {
-		StreamURL        string
-		DownloadVideoURL string
-		DownloadAudioURL string
-		VideoInfoJSON    template.HTML // Use template.HTML to prevent escaping
-		VideoInfo        *service.VideoInfo
+		StreamURL     string
+		VideoInfoJSON template.HTML // Use template.HTML to prevent escaping
+		VideoInfo     *service.VideoInfo
 	}{
-		StreamURL:        streamURL,
-		DownloadVideoURL: downloadVideoURL,
-		DownloadAudioURL: downloadAudioURL,
-		VideoInfoJSON:    template.HTML(videoInfoJSON),
-		VideoInfo:        videoInfo,
+		StreamURL:     streamURL,
+		VideoInfoJSON: template.HTML(videoInfoJSON),
+		VideoInfo:     videoInfo,
 	}
 
 	// Re-execute the template with the stream URL and video info
