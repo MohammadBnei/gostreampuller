@@ -25,16 +25,16 @@ func New(cfg *config.Config) *Router {
 	mux := http.NewServeMux()
 
 	// Create services
-	downloader := service.NewDownloader(cfg)
-	// streamer := service.NewStreamer(cfg, downloader) // Streamer service is no longer needed for this approach
+	progressManager := service.NewProgressManager() // Instantiate ProgressManager
+	downloader := service.NewDownloader(cfg, progressManager) // Pass ProgressManager to Downloader
 
 	// Create handlers
 	healthHandler := handler.NewHealthHandler()
 	downloadVideoHandler := handler.NewDownloadVideoHandler(downloader)
 	downloadAudioHandler := handler.NewDownloadAudioHandler(downloader)
-	streamVideoHandler := handler.NewStreamVideoHandler(downloader) // This handler still uses direct piping
-	streamAudioHandler := handler.NewStreamAudioHandler(downloader) // This handler still uses direct piping
-	webStreamHandler := handler.NewWebStreamHandler(downloader)     // Pass only downloader
+	streamVideoHandler := handler.NewStreamVideoHandler(downloader)
+	streamAudioHandler := handler.NewStreamAudioHandler(downloader)
+	webStreamHandler := handler.NewWebStreamHandler(downloader, progressManager) // Pass ProgressManager to web handler
 
 	// Register routes
 	// Order matters for http.ServeMux: more specific paths should generally come before more general ones.
@@ -74,6 +74,7 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream)                   // Uses downloader.StreamVideo
 	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // Uses downloader.DownloadVideoToTempFile
 	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Uses downloader.DownloadAudioToTempFile
+	mux.HandleFunc("GET /web/progress", webStreamHandler.ServeProgress)               // New SSE endpoint
 
 	return &Router{
 		Mux: mux,

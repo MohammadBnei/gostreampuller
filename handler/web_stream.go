@@ -82,8 +82,8 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	videoURL := r.FormValue("url")
 	resolution := r.FormValue("resolution")
 	codec := r.FormValue("codec")
-	audioQuality := r.FormValue("audioQuality")
-	action := r.FormValue("action")
+	audioQuality := r.FormValue("audioQuality") // Get audio quality
+	action := r.FormValue("action")             // Get the action from the clicked button
 
 	if videoURL == "" {
 		slog.Error("Missing URL in web stream request")
@@ -331,4 +331,91 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 	slog.Info("Direct video download stream finished", "url", videoURL)
 }
 
+// DownloadAudioToBrowser streams audio directly to the browser for download.
 //
+//	@Summary		Download audio to browser
+//	@Description	Streams audio content directly to the browser, triggering a download.
+//	@Tags			web
+//	@Produce		audio/mpeg
+//	@Param			url				query		string	true	"Audio URL"
+//	@Param			outputFormat	query		string	false	"Output format (e.g., mp3, aac)"
+//	@Param			codec			query		string	false	"Audio Codec (e.g., libmp3lame)"
+//	@Param			bitrate			query		string	false	"Audio Bitrate (e.g., 128k)"
+//	@Param			progressID		query		string	true	"Unique ID for progress tracking"
+//	@Success		200				{file}		file	"Successfully streamed audio for download"
+//	@Failure		400				{string}	string	"Bad Request"
+//	@Failure		500				{string}	string	"Internal Server Error"
+//	@Router			/web/download/audio [get]
+func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http.Request) {
+	audioURL := r.URL.Query().Get("url")
+	outputFormat := r.URL.Query().Get("outputFormat") // This is not used by ProxyAudio, but kept for Swagger
+	codec := r.URL.Query().Get("codec")               // This is not used by ProxyAudio, but kept for Swagger
+	bitrate := r.URL.Query().Get("bitrate")           // Get bitrate from query parameter
+	progressID := r.URL.Query().Get("progressID")    // Get progress ID
+
+	if audioURL == "" {
+		slog.Error("Missing URL in audio download request")
+		http.Error(w, "URL is required", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("Attempting to download audio to temp file for direct download", "url", audioURL, "outputFormat", outputFormat, "bitrate", bitrate, "progressID", progressID)
+
+	// Get video info to suggest a filename
+	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), audioURL, progressID) // Pass progressID
+	if err != nil {
+		slog.Warn("Could not get video info for filename suggestion, proceeding without it", "error", err)
+		videoInfo = &service.VideoInfo{Title: "audio", Ext: "mp3"} // Fallback
+		// Error event already sent by downloader.GetVideoInfo
+		http.Error(w, fmt.Sprintf("Failed to get video information: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Download audio to a temporary file
+	tempFilePath, err := h.downloader.DownloadAudioToTempFile(r.Context(), audioURL, outputFormat, codec, bitrate, progressID) // Pass progressID
+	if err != nil {
+		slog.Error("Failed to download audio to temporary file", "error", err, "url", audioURL)
+		// Error event already sent by downloader.DownloadAudioToTempFile
+		http.Error(w, fmt.Sprintf("Failed to download audio: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer func() {
+		if err := os.Remove(tempFilePath); err != nil {
+			slog.Error("Failed to remove temporary audio file", "filePath", tempFilePath, "error", err)
+		}
+	}()
+
+	// Set headers for download
+	if outputFormat == "" {
+		outputFormat = "mp3" // Default for content-type
+	}
+	filename := fmt.Sprintf("%s.%s", sanitizeFilename(videoInfo.Title), outputFormat)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", fmt.Sprintf("audio/%s", outputFormat)) // e.g., audio/mp3
+	// http.ServeFile will handle Content-Length and other headers
+
+	slog.Info("Serving temporary audio file for direct download", "filePath", tempFilePath, "filename", filename)
+	http.ServeFile(w, r, tempFilePath)
+	h.progressManager.SendComplete(progressID, "Audio download complete.", videoInfo) // Send complete event
+	slog.Info("Direct audio download stream finished", "url", audioURL)
+}
+
+// sanitizeFilename removes characters that are not allowed in filenames.
+func sanitizeFilename(s string) string {
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	s = strings.ReplaceAll(s, ":", "_")
+	s = strings.ReplaceAll(s, "*", "_")
+	s = strings.ReplaceAll(s, "?", "_")
+	s = strings.ReplaceAll(s, "\"", "_")
+	s = strings.ReplaceAll(s, "<", "_")
+	s = strings.ReplaceAll(s, ">", "_")
+	s = strings.ReplaceAll(s, "|", "_")
+	s = strings.ReplaceAll(s, " ", "_")  // Replace spaces with underscores
+	s = strings.ReplaceAll(s, "__", "_") // Replace double underscores
+	s = strings.Trim(s, "_")             // Trim leading/trailing underscores
+	if len(s) > 200 {                    // Limit filename length
+		s = s[:200]
+	}
+	return s
+}
