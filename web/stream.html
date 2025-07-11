@@ -99,8 +99,17 @@
                 <option value="2160">2160p (4K)</option>
             </select>
 
-            <label for="codec">Codec (e.g., avc1, vp9):</label>
+            <label for="codec">Video Codec (e.g., avc1, vp9):</label>
             <input type="text" id="codec" name="codec" placeholder="Optional, default: avc1">
+
+            <label for="audioQuality">Audio Quality:</label>
+            <select id="audioQuality" name="audioQuality">
+                <option value="">Auto (Best available)</option>
+                <option value="128k">128 kbps</option>
+                <option value="192k" selected>192 kbps</option>
+                <option value="256k">256 kbps</option>
+                <option value="320k">320 kbps</option>
+            </select>
 
             <div class="form-actions">
                 <button type="submit" name="action" value="stream">Stream Video</button>
@@ -133,7 +142,8 @@
             if (actionButton && actionButton.name === 'action') {
                 const url = form.elements['url'].value;
                 const resolution = form.elements['resolution'].value; // Get value from select
-                const codec = form.elements['codec'].value;
+                const videoCodec = form.elements['codec'].value; // Renamed to avoid conflict
+                const audioQuality = form.elements['audioQuality'].value; // Get value from select
 
                 let targetUrl = '';
                 switch (actionButton.value) {
@@ -141,11 +151,10 @@
                         // Form will submit to /web (POST) which then redirects to /web/play
                         return; // Let the form submit normally
                     case 'download_video':
-                        targetUrl = `/web/download/video?url=${encodeURIComponent(url)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(codec)}`;
+                        targetUrl = `/web/download/video?url=${encodeURIComponent(url)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(videoCodec)}`;
                         break;
                     case 'download_audio':
-                        targetUrl = `/web/download/audio?url=${encodeURIComponent(url)}`;
-                        // For audio, we might want to add outputFormat, codec, bitrate if we add those fields to the form
+                        targetUrl = `/web/download/audio?url=${encodeURIComponent(url)}&bitrate=${encodeURIComponent(audioQuality)}`;
                         break;
                     default:
                         return; // Unknown action, let form submit normally

@@ -63,6 +63,7 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 //	@Param			url			formData	string	true	"Video URL"
 //	@Param			resolution	formData	string	false	"Video Resolution (e.g., 720, 1080)"
 //	@Param			codec		formData	string	false	"Video Codec (e.g., avc1, vp9)"
+//	@Param			audioQuality formData string false "Audio Quality (e.g., 128k, 192k)"
 //	@Param			action		formData	string	true	"Action to perform (stream, download_video, download_audio)"
 //	@Success		200			{string}	html	"HTML page with streamed video and info"
 //	@Failure		400			{string}	string	"Bad Request"
@@ -78,7 +79,8 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	videoURL := r.FormValue("url")
 	resolution := r.FormValue("resolution")
 	codec := r.FormValue("codec")
-	action := r.FormValue("action") // Get the action from the clicked button
+	audioQuality := r.FormValue("audioQuality") // Get audio quality
+	action := r.FormValue("action")             // Get the action from the clicked button
 
 	if videoURL == "" {
 		slog.Error("Missing URL in web stream request")
@@ -97,7 +99,9 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if action == "download_audio" {
-		http.Redirect(w, r, fmt.Sprintf("/web/download/audio?url=%s", url.QueryEscape(videoURL)), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/web/download/audio?url=%s&bitrate=%s",
+			url.QueryEscape(videoURL),
+			url.QueryEscape(audioQuality)), http.StatusFound) // Pass bitrate
 		return
 	}
 
@@ -233,7 +237,11 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 		http.Error(w, fmt.Sprintf("Failed to download video: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer os.Remove(tempFilePath) // Ensure temporary file is deleted after serving
+	defer func() {
+		if err := os.Remove(tempFilePath); err != nil {
+			slog.Error("Failed to remove temporary video file", "filePath", tempFilePath, "error", err)
+		}
+	}()
 
 	// Set headers for download
 	filename := fmt.Sprintf("%s.%s", sanitizeFilename(videoInfo.Title), "mp4")
@@ -264,7 +272,7 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 	audioURL := r.URL.Query().Get("url")
 	outputFormat := r.URL.Query().Get("outputFormat") // This is not used by ProxyAudio, but kept for Swagger
 	codec := r.URL.Query().Get("codec")               // This is not used by ProxyAudio, but kept for Swagger
-	bitrate := r.URL.Query().Get("bitrate")           // This is not used by ProxyAudio, but kept for Swagger
+	bitrate := r.URL.Query().Get("bitrate")           // Get bitrate from query parameter
 
 	if audioURL == "" {
 		slog.Error("Missing URL in audio download request")
@@ -272,7 +280,7 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 		return
 	}
 
-	slog.Info("Attempting to download audio to temp file for direct download", "url", audioURL, "outputFormat", outputFormat)
+	slog.Info("Attempting to download audio to temp file for direct download", "url", audioURL, "outputFormat", outputFormat, "bitrate", bitrate)
 
 	// Get video info to suggest a filename
 	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), audioURL)
@@ -288,7 +296,11 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 		http.Error(w, fmt.Sprintf("Failed to download audio: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer os.Remove(tempFilePath) // Ensure temporary file is deleted after serving
+	defer func() {
+		if err := os.Remove(tempFilePath); err != nil {
+			slog.Error("Failed to remove temporary audio file", "filePath", tempFilePath, "error", err)
+		}
+	}()
 
 	// Set headers for download
 	if outputFormat == "" {
