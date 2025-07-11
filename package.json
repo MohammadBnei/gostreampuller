@@ -1,6 +1,6 @@
 {
   "name": "gostreampuller",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A lightweight, containerized REST API service that provides video and audio downloading and streaming capabilities.",
   "repository": {
     "type": "git",

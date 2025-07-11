@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/MohammadBnei/gostreampuller/compare/0.1.3...0.1.4) (2025-07-11)
+
+
+### Bug Fixes
+
+* **docker.yml:** add sudo to apt install command to ensure proper permissions for installation of yt-dlp and ffmpeg ([ce009e6](https://github.com/MohammadBnei/gostreampuller/commit/ce009e67601f46406d66b7e1dfaed21208c4ba96))
+
 ## [0.1.3](https://github.com/MohammadBnei/gostreampuller/compare/0.1.2...0.1.3) (2025-07-11)
 
 ## [0.1.2](https://github.com/MohammadBnei/gostreampuller/compare/0.1.1...0.1.2) (2025-07-11)
