@@ -20,13 +20,15 @@ import (
 
 // Downloader provides functionality to download and stream videos/audio.
 type Downloader struct {
-	cfg *config.Config
+	cfg             *config.Config
+	progressManager *ProgressManager // Added ProgressManager
 }
 
 // NewDownloader creates a new Downloader instance.
-func NewDownloader(cfg *config.Config) *Downloader {
+func NewDownloader(cfg *config.Config, pm *ProgressManager) *Downloader {
 	return &Downloader{
-		cfg: cfg,
+		cfg:             cfg,
+		progressManager: pm,
 	}
 }
 
@@ -61,7 +63,14 @@ type VideoInfo struct {
 
 // GetVideoInfo fetches video metadata without downloading the file.
 // This is for general info, not necessarily for direct streaming.
-func (d *Downloader) GetVideoInfo(ctx context.Context, url string) (*VideoInfo, error) {
+func (d *Downloader) GetVideoInfo(ctx context.Context, url string, progressID string) (*VideoInfo, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Fetching video information...",
+		Percentage: 0,
+	})
+
 	infoArgs := []string{
 		"--dump-json",
 		"--no-playlist",
@@ -78,21 +87,37 @@ func (d *Downloader) GetVideoInfo(ctx context.Context, url string) (*VideoInfo, 
 	err := cmd.Run()
 	if err != nil {
 		slog.Error(fmt.Sprintf("yt-dlp info dump failed: %v\nStdout: %s\nStderr: %s", err, stdout.String(), stderr.String()))
+		d.progressManager.SendError(progressID, "Failed to fetch video information", err)
 		return nil, fmt.Errorf("yt-dlp info dump failed: %w, stderr: %s", err, stderr.String())
 	}
 
 	var videoInfo VideoInfo
 	if err := json.Unmarshal(stdout.Bytes(), &videoInfo); err != nil {
+		d.progressManager.SendError(progressID, "Failed to parse video information", err)
 		return nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
 	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "info_fetched",
+		Message: "Video information fetched successfully.",
+		Percentage: 10,
+		VideoInfo: &videoInfo,
+	})
 	return &videoInfo, nil
 }
 
 // GetStreamInfo fetches detailed stream information, including direct URLs.
 // It tries to find a suitable video stream based on resolution and codec.
 // This method is still useful for getting detailed format information, even if not directly proxying.
-func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution string, codec string) (*VideoInfo, error) {
-	// Use --list-formats to get all available formats
+func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution string, codec string, progressID string) (*VideoInfo, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_stream_info",
+		Message: "Fetching detailed stream information...",
+		Percentage: 0,
+	})
+
 	infoArgs := []string{
 		"--dump-json",
 		"--no-playlist",
@@ -109,11 +134,13 @@ func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution s
 	err := cmd.Run()
 	if err != nil {
 		slog.Error(fmt.Sprintf("yt-dlp stream info dump failed: %v\nStdout: %s\nStderr: %s", err, stdout.String(), stderr.String()))
+		d.progressManager.SendError(progressID, "Failed to fetch stream information", err)
 		return nil, fmt.Errorf("yt-dlp stream info dump failed: %w, stderr: %s", err, stderr.String())
 	}
 
 	var fullInfo VideoInfo // Use VideoInfo directly as it now contains Formats
 	if err := json.Unmarshal(stdout.Bytes(), &fullInfo); err != nil {
+		d.progressManager.SendError(progressID, "Failed to parse stream information", err)
 		return nil, fmt.Errorf("failed to parse yt-dlp full info json: %w", err)
 	}
 
@@ -165,6 +192,7 @@ func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution s
 	}
 
 	if bestFormat == nil {
+		d.progressManager.SendError(progressID, "No suitable direct stream URL found", nil)
 		return nil, fmt.Errorf("no suitable direct stream URL found for video: %s", url)
 	}
 
@@ -178,12 +206,38 @@ func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution s
 	bestFormat.UploadDate = fullInfo.UploadDate
 	bestFormat.Thumbnail = fullInfo.Thumbnail
 
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "stream_info_fetched",
+		Message: "Detailed stream information fetched.",
+		Percentage: 10,
+		VideoInfo: bestFormat,
+	})
 	return bestFormat, nil
 }
 
 // DownloadVideoToFile downloads a video from the given URL to a file.
 // It returns the path to the downloaded file and its metadata.
-func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format string, resolution string, codec string) (string, *VideoInfo, error) {
+func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format string, resolution string, codec string, progressID string) (string, *VideoInfo, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Fetching video information for download...",
+		Percentage: 0,
+	})
+
+	videoInfo, err := d.GetVideoInfo(ctx, url, progressID) // Pass progressID
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get video info: %w", err)
+	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "downloading",
+		Message: "Downloading video...",
+		Percentage: 25,
+	})
+
 	if format == "" {
 		format = "mp4"
 	}
@@ -194,11 +248,6 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 		codec = "avc1"
 	}
 
-	videoInfo, err := d.GetVideoInfo(ctx, url)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to get video info: %w", err)
-	}
-
 	// Generate a unique filename using timestamp and original extension
 	uniqueFilename := fmt.Sprintf("%d-%s.%s", time.Now().UnixNano(), videoInfo.ID, format)
 	finalFilePath := filepath.Join(d.cfg.DownloadDir, uniqueFilename)
@@ -207,7 +256,7 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 	downloadArgs := []string{
 		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
 		"--output", finalFilePath,
-		"--no-progress",
+		"--no-progress", // We'll handle progress via stderr parsing if needed, or just stages
 		"--no-playlist",          // Assume single video download
 		"--recode-video", format, // Instruct yt-dlp to convert to the desired format
 		url,
@@ -223,21 +272,43 @@ func (d *Downloader) DownloadVideoToFile(ctx context.Context, url string, format
 	err = downloadCmd.Run()
 	if err != nil {
 		slog.Error(fmt.Sprintf("yt-dlp video download failed: %v\nStdout: %s\nStderr: %s", err, downloadStdout.String(), downloadStderr.String()))
+		d.progressManager.SendError(progressID, "Video download failed", err)
 		return "", nil, fmt.Errorf("yt-dlp video download failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
 	// Verify the file exists
 	if _, err := os.Stat(finalFilePath); err != nil {
+		d.progressManager.SendError(progressID, "Downloaded file not found", err)
 		return "", nil, fmt.Errorf("downloaded video file not found at %s: %w", finalFilePath, err)
 	}
 
+	d.progressManager.SendComplete(progressID, "Video downloaded successfully", videoInfo)
 	slog.Info(fmt.Sprintf("Video downloaded to: %s", finalFilePath))
 	return finalFilePath, videoInfo, nil
 }
 
 // DownloadAudioToFile downloads audio from the given URL to a file.
 // It returns the path to the downloaded file and its metadata.
-func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (string, *VideoInfo, error) {
+func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string, progressID string) (string, *VideoInfo, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Fetching audio information for download...",
+		Percentage: 0,
+	})
+
+	videoInfo, err := d.GetVideoInfo(ctx, url, progressID) // Pass progressID
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get audio info: %w", err)
+	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "downloading",
+		Message: "Downloading audio...",
+		Percentage: 25,
+	})
+
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -246,11 +317,6 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 	}
 	if bitrate == "" {
 		bitrate = "128k"
-	}
-
-	videoInfo, err := d.GetVideoInfo(ctx, url)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to get audio info: %w", err)
 	}
 
 	// Generate a unique filename using timestamp and desired output format
@@ -279,20 +345,44 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 	err = downloadCmd.Run()
 	if err != nil {
 		slog.Error(fmt.Sprintf("yt-dlp audio fetch failed: %v\nStdout: %s\nStderr: %s", err, downloadStdout.String(), downloadStderr.String()))
+		d.progressManager.SendError(progressID, "Audio download failed", err)
 		return "", nil, fmt.Errorf("yt-dlp audio fetch failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
 	// Verify the file exists
 	if _, err := os.Stat(finalFilePath); err != nil {
+		d.progressManager.SendError(progressID, "Downloaded file not found", err)
 		return "", nil, fmt.Errorf("downloaded audio file not found at %s: %w", finalFilePath, err)
 	}
 
+	d.progressManager.SendComplete(progressID, "Audio downloaded successfully", videoInfo)
 	slog.Info(fmt.Sprintf("Audio downloaded to: %s", finalFilePath))
 	return finalFilePath, videoInfo, nil
 }
 
 // StreamVideo streams video from the given URL by piping yt-dlp output.
-func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string) (io.ReadCloser, error) {
+func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string, progressID string) (io.ReadCloser, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Preparing video stream...",
+		Percentage: 0,
+	})
+
+	// Get video info to send with the initial event
+	videoInfo, err := d.GetVideoInfo(ctx, url, progressID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video info for streaming: %w", err)
+	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "streaming",
+		Message: "Starting video stream...",
+		Percentage: 25,
+		VideoInfo: videoInfo, // Send video info with the streaming event
+	})
+
 	if format == "" {
 		format = "mp4"
 	}
@@ -318,14 +408,18 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
+		d.progressManager.SendError(progressID, "Failed to create stream pipe", err)
 		return nil, fmt.Errorf("failed to create stdout pipe for yt-dlp: %w", err)
 	}
 	cmd.Stderr = os.Stderr // Direct yt-dlp errors to stderr for debugging
 
 	if err := cmd.Start(); err != nil {
+		d.progressManager.SendError(progressID, "Failed to start stream command", err)
 		return nil, fmt.Errorf("failed to start yt-dlp command for video stream: %w", err)
 	}
 
+	// No "complete" event for streaming, as it's a continuous process.
+	// The client will close the connection when done.
 	return &commandReadCloser{
 		ReadCloser: stdoutPipe,
 		cmd:        cmd,
@@ -333,7 +427,28 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 }
 
 // StreamAudio streams audio from the given URL by piping yt-dlp output.
-func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (io.ReadCloser, error) {
+func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat string, codec string, bitrate string, progressID string) (io.ReadCloser, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Preparing audio stream...",
+		Percentage: 0,
+	})
+
+	// Get video info to send with the initial event
+	videoInfo, err := d.GetVideoInfo(ctx, url, progressID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get audio info for streaming: %w", err)
+	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "streaming",
+		Message: "Starting audio stream...",
+		Percentage: 25,
+		VideoInfo: videoInfo, // Send video info with the streaming event
+	})
+
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -359,14 +474,18 @@ func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat s
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
+		d.progressManager.SendError(progressID, "Failed to create stream pipe", err)
 		return nil, fmt.Errorf("failed to create stdout pipe for yt-dlp: %w", err)
 	}
 	cmd.Stderr = os.Stderr // Direct yt-dlp errors to stderr for debugging
 
 	if err := cmd.Start(); err != nil {
+		d.progressManager.SendError(progressID, "Failed to start stream command", err)
 		return nil, fmt.Errorf("failed to start yt-dlp command for audio stream: %w", err)
 	}
 
+	// No "complete" event for streaming, as it's a continuous process.
+	// The client will close the connection when done.
 	return &commandReadCloser{
 		ReadCloser: stdoutPipe,
 		cmd:        cmd,
@@ -375,7 +494,28 @@ func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat s
 
 // DownloadVideoToTempFile downloads a video to a temporary file on the server.
 // Returns the path to the temporary file and any error.
-func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, format string, resolution string, codec string) (string, error) {
+func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, format string, resolution string, codec string, progressID string) (string, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Fetching video information for download...",
+		Percentage: 0,
+	})
+
+	// Get video info to send with the initial event
+	videoInfo, err := d.GetVideoInfo(ctx, url, progressID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get video info for download: %w", err)
+	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "downloading",
+		Message: "Downloading video to server...",
+		Percentage: 25,
+		VideoInfo: videoInfo, // Send video info with the downloading event
+	})
+
 	if format == "" {
 		format = "mp4"
 	}
@@ -405,20 +545,48 @@ func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, fo
 	var downloadStderr bytes.Buffer
 	downloadCmd.Stderr = &downloadStderr
 
-	err := downloadCmd.Run()
+	err = downloadCmd.Run()
 	if err != nil {
-		// Do not remove file here; handler will decide based on error
 		slog.Error(fmt.Sprintf("yt-dlp temp video download failed: %v\nStderr: %s", err, downloadStderr.String()))
+		d.progressManager.SendError(progressID, "Video download to server failed", err)
 		return "", fmt.Errorf("yt-dlp temp video download failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "download_complete",
+		Message: "Video downloaded to server. Preparing to serve...",
+		Percentage: 75,
+		VideoInfo: videoInfo,
+	})
 	slog.Info(fmt.Sprintf("Video downloaded to: %s", finalFilePath))
 	return finalFilePath, nil
 }
 
 // DownloadAudioToTempFile downloads audio to a temporary file on the server.
 // Returns the path to the temporary file and any error.
-func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (string, error) {
+func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string, progressID string) (string, error) {
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "fetching_info",
+		Message: "Fetching audio information for download...",
+		Percentage: 0,
+	})
+
+	// Get video info to send with the initial event
+	videoInfo, err := d.GetVideoInfo(ctx, url, progressID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get audio info for download: %w", err)
+	}
+
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "downloading",
+		Message: "Downloading audio to server...",
+		Percentage: 25,
+		VideoInfo: videoInfo, // Send video info with the downloading event
+	})
+
 	if outputFormat == "" {
 		outputFormat = "mp3"
 	}
@@ -450,13 +618,20 @@ func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, ou
 	var downloadStderr bytes.Buffer
 	downloadCmd.Stderr = &downloadStderr
 
-	err := downloadCmd.Run()
+	err = downloadCmd.Run()
 	if err != nil {
-		// Do not remove file here; handler will decide based on error
 		slog.Error(fmt.Sprintf("yt-dlp temp audio download failed: %v\nStderr: %s", err, downloadStderr.String()))
+		d.progressManager.SendError(progressID, "Audio download to server failed", err)
 		return "", fmt.Errorf("yt-dlp temp audio download failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
+	d.progressManager.SendEvent(ProgressEvent{
+		ID:      progressID,
+		Status:  "download_complete",
+		Message: "Audio downloaded to server. Preparing to serve...",
+		Percentage: 75,
+		VideoInfo: videoInfo,
+	})
 	slog.Info(fmt.Sprintf("Audio downloaded to: %s", finalFilePath))
 	return finalFilePath, nil
 }
