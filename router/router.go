@@ -30,10 +30,10 @@ func New(cfg *config.Config) *Router {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(appMiddleware.LoggingMiddleware(cfg)) // Use our custom logging middleware
-	r.Use(middleware.Recoverer) // Recover from panics and return 500 error
+	r.Use(middleware.Recoverer)                 // Recover from panics and return 500 error
 
 	// Create services
-	progressManager := service.NewProgressManager() // Instantiate ProgressManager
+	progressManager := service.NewProgressManager()           // Instantiate ProgressManager
 	downloader := service.NewDownloader(cfg, progressManager) // Pass ProgressManager to Downloader
 
 	// Create handlers
@@ -83,16 +83,15 @@ func New(cfg *config.Config) *Router {
 
 	// Web Stream routes - using /web prefix
 	r.Group(func(webRouter chi.Router) {
-		webRouter.Get("/", webStreamHandler.ServeMainPage) // New root handler
-		webRouter.Post("/load-info", webStreamHandler.HandleLoadInfo) // New handler for initial URL submission
-		webRouter.Get("/web", webStreamHandler.ServeStreamPage) // Now serves the stream.html with info
-		webRouter.Post("/web", webStreamHandler.HandleOperation) // Handles operations from stream.html
-		webRouter.Get("/web/play", webStreamHandler.PlayWebStream)                   // Uses downloader.StreamVideo
+		webRouter.Get("/", webStreamHandler.ServeMainPage)                            // New root handler
+		webRouter.Post("/load-info", webStreamHandler.HandleLoadInfo)                 // New handler for initial URL submission
+		webRouter.Get("/web", webStreamHandler.ServeStreamPage)                       // Now serves the stream.html with info
+		webRouter.Post("/web", webStreamHandler.HandleOperation)                      // Handles operations from stream.html
+		webRouter.Get("/web/play", webStreamHandler.PlayWebStream)                    // Uses downloader.StreamVideo
 		webRouter.Get("/web/download/video", webStreamHandler.DownloadVideoToBrowser) // Uses downloader.DownloadVideoToTempFile
 		webRouter.Get("/web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Uses downloader.DownloadAudioToTempFile
-		webRouter.Get("/web/progress", webStreamHandler.ServeProgress)               // New SSE endpoint
+		webRouter.Get("/web/progress", webStreamHandler.ServeProgress)                // New SSE endpoint
 	})
-
 
 	return &Router{
 		Mux: r,
