@@ -51,10 +51,10 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("POST /stream/video", streamVideoHandler.Handle)
 	mux.HandleFunc("POST /stream/audio", streamAudioHandler.Handle)
 
-	// Web Stream routes - prefixed with /web
-	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
-	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
-	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
+	// Web Stream routes - root path for the form, /play for the actual stream
+	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage)
+	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)
+	mux.HandleFunc("GET /play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
 
 	// Serve Swagger UI
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
