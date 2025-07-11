@@ -187,6 +187,7 @@ func (h *WebStreamHandler) ServeProgress(w http.ResponseWriter, r *http.Request)
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
+		slog.Error("Streaming unsupported")
 		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
 		return
 	}
