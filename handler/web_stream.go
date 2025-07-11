@@ -48,13 +48,13 @@ func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressMan
 //	@Success		200	{string}	html	"HTML page for video streaming"
 //	@Router			/web [get]
 func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Request) {
-	// Initial render, no operation in progress
+	// Initial render, no operation in progress, so VideoInfo is nil
 	data := struct {
 		StreamURL        string
 		DownloadVideoURL string
 		DownloadAudioURL string
 		VideoInfoJSON    template.HTML
-		VideoInfo        *service.VideoInfo
+		VideoInfo        *service.VideoInfo // This will be nil on initial load
 		ProgressID       string
 		Action           string
 	}{
@@ -62,7 +62,7 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 		DownloadVideoURL: "",
 		DownloadAudioURL: "",
 		VideoInfoJSON:    "",
-		VideoInfo:        nil,
+		VideoInfo:        nil, // Explicitly nil
 		ProgressID:       "",
 		Action:           "",
 	}
@@ -85,7 +85,7 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 //	@Param			resolution	formData	string	false	"Video Resolution (e.g., 480, 720, 1080)"
 //	@Param			codec		formData	string	false	"Video Codec (e.g., avc1, vp9)"
 //	@Param			audioQuality formData string false "Audio Quality (e.g., 128k, 192k)"
-//	@Param			action		formData	string	true	"Action to perform (stream, download_video, download_audio)"
+//	@Param			action		formData	string	true	"Action to perform (load_info, stream, download_video, download_audio)"
 //	@Success		200			{string}	html	"HTML page with streamed video and info"
 //	@Failure		400			{string}	string	"Bad Request"
 //	@Failure		500			{string}	string	"Internal Server Error"
@@ -100,8 +100,8 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	videoURL := r.FormValue("url")
 	resolution := r.FormValue("resolution")
 	codec := r.FormValue("codec")
-	audioQuality := r.FormValue("audioQuality") // Get audio quality
-	action := r.FormValue("action")             // Get the action from the clicked button
+	audioQuality := r.FormValue("audioQuality")
+	action := r.FormValue("action")
 
 	if videoURL == "" {
 		slog.Error("Missing URL in web stream request")
@@ -112,12 +112,10 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	// Generate a unique progress ID for this operation
 	progressID := fmt.Sprintf("op-%d", time.Now().UnixNano())
 
-	// Get video info (using GetVideoInfo for general metadata)
-	// This will send the initial "fetching_info" event and the "info_fetched" event
+	// Always fetch video info first, regardless of the action
 	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), videoURL, progressID)
 	if err != nil {
 		slog.Error("Failed to get video info for web stream", "error", err, "url", videoURL)
-		// Error event already sent by downloader.GetVideoInfo
 		http.Error(w, fmt.Sprintf("Failed to get video information: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -167,8 +165,20 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 		Action:           action, // So frontend knows which operation to start
 	}
 
-	// Re-execute the template with the stream URL and video info
-	// This will render the same page but with the video player and info populated
+	// If the action is 'load_info', we just render the page with info and progressID,
+	// but don't trigger any stream/download. The frontend JS will handle showing the options.
+	if action == "load_info" {
+		h.progressManager.SendComplete(progressID, "Video information loaded.", videoInfo)
+		err = h.template.Execute(w, data)
+		if err != nil {
+			slog.Error("Failed to execute web stream template with data for load_info", "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// For stream/download actions, the frontend will redirect to the specific GET endpoint
+	// after receiving the initial info via SSE. So, we just render the page.
 	err = h.template.Execute(w, data)
 	if err != nil {
 		slog.Error("Failed to execute web stream template with data", "error", err)

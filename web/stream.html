@@ -139,6 +139,10 @@
             font-weight: bold;
             margin-top: 10px;
         }
+        /* Initially hide these sections */
+        #options-section, #video-player-section, #info-display-section, #progress-display-section {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -148,53 +152,58 @@
         <form id="streamForm" action="/web" method="post">
             <label for="url">Video URL:</label>
             <input type="text" id="url" name="url" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required value="{{ .VideoInfo.OriginalURL }}">
+            <button type="submit" name="action" value="load_info">Load Video Info</button>
 
-            <label for="resolution">Resolution:</label>
-            <select id="resolution" name="resolution">
-                <option value="">Auto (Best available)</option>
-                <option value="480">480p</option>
-                <option value="720" {{ if eq .VideoInfo.Height 720 }}selected{{ end }}>720p</option>
-                <option value="1080" {{ if eq .VideoInfo.Height 1080 }}selected{{ end }}>1080p</option>
-                <option value="1440" {{ if eq .VideoInfo.Height 1440 }}selected{{ end }}>1440p</option>
-                <option value="2160" {{ if eq .VideoInfo.Height 2160 }}selected{{ end }}>2160p (4K)</option>
-            </select>
+            <div id="options-section">
+                <label for="resolution">Resolution:</label>
+                <select id="resolution" name="resolution">
+                    <option value="">Auto (Best available)</option>
+                    <option value="480">480p</option>
+                    <option value="720" {{ if eq .VideoInfo.Height 720 }}selected{{ end }}>720p</option>
+                    <option value="1080" {{ if eq .VideoInfo.Height 1080 }}selected{{ end }}>1080p</option>
+                    <option value="1440" {{ if eq .VideoInfo.Height 1440 }}selected{{ end }}>1440p</option>
+                    <option value="2160" {{ if eq .VideoInfo.Height 2160 }}selected{{ end }}>2160p (4K)</option>
+                </select>
 
-            <label for="codec">Video Codec (e.g., avc1, vp9):</label>
-            <input type="text" id="codec" name="codec" placeholder="Optional, default: avc1" value="{{ .VideoInfo.VCodec }}">
+                <label for="codec">Video Codec (e.g., avc1, vp9):</label>
+                <input type="text" id="codec" name="codec" placeholder="Optional, default: avc1" value="{{ .VideoInfo.VCodec }}">
 
-            <label for="audioQuality">Audio Quality:</label>
-            <select id="audioQuality" name="audioQuality">
-                <option value="">Auto (Best available)</option>
-                <option value="128k">128 kbps</option>
-                <option value="192k" selected>192 kbps</option>
-                <option value="256k">256 kbps</option>
-                <option value="320k">320 kbps</option>
-            </select>
+                <label for="audioQuality">Audio Quality:</label>
+                <select id="audioQuality" name="audioQuality">
+                    <option value="">Auto (Best available)</option>
+                    <option value="128k">128 kbps</option>
+                    <option value="192k" selected>192 kbps</option>
+                    <option value="256k">256 kbps</option>
+                    <option value="320k">320 kbps</option>
+                </select>
 
-            <div class="form-actions">
-                <button type="submit" name="action" value="stream">Stream Video</button>
-                <button type="submit" name="action" value="download_video">Download Video</button>
-                <button type="submit" name="action" value="download_audio">Download Audio</button>
+                <div class="form-actions">
+                    <button type="submit" name="action" value="stream">Stream Video</button>
+                    <button type="submit" name="action" value="download_video">Download Video</button>
+                    <button type="submit" name="action" value="download_audio">Download Audio</button>
+                </div>
             </div>
         </form>
 
-        {{ if .VideoInfo }}
-            <div class="video-info-card">
-                {{ if .VideoInfo.Thumbnail }}
-                    <img src="{{ .VideoInfo.Thumbnail }}" alt="Video Thumbnail">
-                {{ end }}
-                <div class="video-info-details">
-                    <h3>{{ .VideoInfo.Title }}</h3>
-                    <p><strong>Uploader:</strong> {{ .VideoInfo.Uploader }}</p>
-                    <p><strong>Duration:</strong> {{ .VideoInfo.Duration }} seconds</p>
-                    <p><strong>Resolution:</strong> {{ .VideoInfo.Height }}p</p>
-                    <p><strong>Codec:</strong> {{ .VideoInfo.VCodec }}</p>
-                    <p><strong>Original URL:</strong> <a href="{{ .VideoInfo.OriginalURL }}" target="_blank">{{ .VideoInfo.OriginalURL }}</a></p>
+        <div id="info-display-section">
+            {{ if .VideoInfo }}
+                <div class="video-info-card">
+                    {{ if .VideoInfo.Thumbnail }}
+                        <img src="{{ .VideoInfo.Thumbnail }}" alt="Video Thumbnail">
+                    {{ end }}
+                    <div class="video-info-details">
+                        <h3>{{ .VideoInfo.Title }}</h3>
+                        <p><strong>Uploader:</strong> {{ .VideoInfo.Uploader }}</p>
+                        <p><strong>Duration:</strong> {{ .VideoInfo.Duration }} seconds</p>
+                        <p><strong>Resolution:</strong> {{ .VideoInfo.Height }}p</p>
+                        <p><strong>Codec:</strong> {{ .VideoInfo.VCodec }}</p>
+                        <p><strong>Original URL:</strong> <a href="{{ .VideoInfo.OriginalURL }}" target="_blank">{{ .VideoInfo.OriginalURL }}</a></p>
+                    </div>
                 </div>
-            </div>
-        {{ end }}
+            {{ end }}
+        </div>
 
-        <div class="progress-container" style="display: none;">
+        <div id="progress-display-section" class="progress-container">
             <h2>Progress</h2>
             <div class="progress-bar">
                 <div class="progress-bar-fill" style="width: 0%;">0%</div>
@@ -203,16 +212,27 @@
             <div class="error-message" style="display: none;"></div>
         </div>
 
-        {{ if .StreamURL }}
-            <div class="video-player">
-                <h2>Streaming Video: {{ .VideoInfo.Title }}</h2>
-                <video controls autoplay>
-                    <source src="{{ .StreamURL }}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-            </div>
-        {{ end }}
+        <div id="video-player-section">
+            {{ if .StreamURL }}
+                <div class="video-player">
+                    <h2>Streaming Video: {{ .VideoInfo.Title }}</h2>
+                    <video controls autoplay>
+                        <source src="{{ .StreamURL }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            {{ end }}
+        </div>
     </div>
+
+    <!-- Hidden inputs to pass data from Go template to JavaScript after re-render -->
+    <input type="hidden" id="progressIDHidden" value="{{ .ProgressID }}">
+    <input type="hidden" id="actionHidden" value="{{ .Action }}">
+    <input type="hidden" id="videoInfoJSONHidden" value="{{ .VideoInfoJSON }}">
+    <input type="hidden" id="streamURLHidden" value="{{ .StreamURL }}">
+    <input type="hidden" id="downloadVideoURLHidden" value="{{ .DownloadVideoURL }}">
+    <input type="hidden" id="downloadAudioURLHidden" value="{{ .DownloadAudioURL }}">
+
 
     <script>
         const streamForm = document.getElementById('streamForm');
@@ -221,7 +241,13 @@
         const codecInput = document.getElementById('codec');
         const audioQualitySelect = document.getElementById('audioQuality');
 
-        const videoInfoCard = document.querySelector('.video-info-card');
+        const optionsSection = document.getElementById('options-section');
+        const infoDisplaySection = document.getElementById('info-display-section');
+        const progressDisplaySection = document.getElementById('progress-display-section');
+        const videoPlayerSection = document.getElementById('video-player-section');
+
+
+        const videoInfoCard = infoDisplaySection.querySelector('.video-info-card');
         const videoInfoThumbnail = videoInfoCard ? videoInfoCard.querySelector('img') : null;
         const videoInfoTitle = videoInfoCard ? videoInfoCard.querySelector('h3') : null;
         const videoInfoUploader = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(1)') : null;
@@ -230,18 +256,18 @@
         const videoInfoCodec = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(4)') : null;
         const videoInfoOriginalURL = videoInfoCard ? videoInfoCard.querySelector('p:nth-of-type(5) a') : null;
 
-        const progressContainer = document.querySelector('.progress-container');
-        const progressBarFill = document.querySelector('.progress-bar-fill');
-        const progressStatus = document.querySelector('.progress-status');
-        const errorMessage = document.querySelector('.error-message');
+        const progressBarFill = progressDisplaySection.querySelector('.progress-bar-fill');
+        const progressStatus = progressDisplaySection.querySelector('.progress-status');
+        const errorMessage = progressDisplaySection.querySelector('.error-message');
 
-        const videoPlayer = document.querySelector('.video-player');
+        const videoPlayer = videoPlayerSection.querySelector('.video-player');
 
         let eventSource = null; // To hold the SSE connection
 
         // Function to update video info card
         function updateVideoInfoCard(videoInfo) {
             if (videoInfoCard && videoInfo) {
+                infoDisplaySection.style.display = 'block'; // Show the info section
                 videoInfoCard.style.display = 'flex';
                 if (videoInfoThumbnail) videoInfoThumbnail.src = videoInfo.thumbnail || '';
                 if (videoInfoTitle) videoInfoTitle.textContent = videoInfo.title || 'N/A';
@@ -265,14 +291,16 @@
                 if (videoInfo.vcodec) {
                     codecInput.value = videoInfo.vcodec;
                 }
-            } else if (videoInfoCard) {
-                videoInfoCard.style.display = 'none'; // Hide if no info
+                optionsSection.style.display = 'block'; // Show options after info is loaded
+            } else {
+                infoDisplaySection.style.display = 'none'; // Hide if no info
+                optionsSection.style.display = 'none'; // Hide options
             }
         }
 
         // Function to update progress bar
         function updateProgressBar(percentage, message, status) {
-            progressContainer.style.display = 'block';
+            progressDisplaySection.style.display = 'block'; // Show the progress section
             progressBarFill.style.width = `${percentage}%`;
             progressBarFill.textContent = `${Math.round(percentage)}%`;
             progressStatus.textContent = message;
@@ -288,7 +316,7 @@
 
         // Function to display error
         function displayError(message) {
-            progressContainer.style.display = 'block';
+            progressDisplaySection.style.display = 'block'; // Show the progress section
             errorMessage.style.display = 'block';
             errorMessage.textContent = `Error: ${message}`;
             progressBarFill.style.width = '100%';
@@ -349,7 +377,7 @@
             // This part is now handled by the server's initial response and the client-side redirect.
             // We only need to ensure the video player is shown if it's a stream.
             if (initialAction === 'stream') {
-                if (videoPlayer) videoPlayer.style.display = 'block';
+                videoPlayerSection.style.display = 'block'; // Show video player section
                 // The source URL is already set by the server-side template rendering
                 // videoPlayer.querySelector('source').src = '{{ .StreamURL }}';
                 // videoPlayer.querySelector('video').load(); // Load the new video source
@@ -361,7 +389,7 @@
             event.preventDefault(); // Prevent default form submission
 
             // Hide previous video player and reset progress
-            if (videoPlayer) videoPlayer.style.display = 'none';
+            videoPlayerSection.style.display = 'none';
             updateProgressBar(0, 'Starting operation...', 'pending');
             errorMessage.style.display = 'none';
 
@@ -409,10 +437,6 @@
 
                 // If progressID is available, start SSE
                 if (newProgressID) {
-                    // Update the global variables with the new values
-                    // This is a hacky way to re-initialize the script's context after DOM replacement.
-                    // In a real SPA, you'd update a state object and re-render components.
-                    // For this simple example, we'll just pass them to initSSE.
                     const videoInfo = newVideoInfoJSON ? JSON.parse(newVideoInfoJSON) : null;
                     updateVideoInfoCard(videoInfo); // Update card with info from the new response
 
@@ -470,16 +494,19 @@
             }
         } else {
             // Hide info card and progress bar if no operation is active
-            if (videoInfoCard) videoInfoCard.style.display = 'none';
-            if (progressContainer) progressContainer.style.display = 'none';
+            infoDisplaySection.style.display = 'none';
+            optionsSection.style.display = 'none';
+            progressDisplaySection.style.display = 'none';
+            videoPlayerSection.style.display = 'none';
         }
 
         // Handle URL input change to fetch info immediately (optional, but good UX)
         urlInput.addEventListener('change', function() {
             // When the URL changes, clear previous results and hide player/progress
-            if (videoInfoCard) videoInfoCard.style.display = 'none';
-            if (progressContainer) progressContainer.style.display = 'none';
-            if (videoPlayer) videoPlayer.style.display = 'none';
+            infoDisplaySection.style.display = 'none';
+            optionsSection.style.display = 'none';
+            progressDisplaySection.style.display = 'none';
+            videoPlayerSection.style.display = 'none';
             closeSSE(); // Close any active SSE connection
             updateProgressBar(0, 'Enter URL and select action', 'idle');
             errorMessage.style.display = 'none';
