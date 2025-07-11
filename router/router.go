@@ -36,10 +36,11 @@ func New(cfg *config.Config) *Router {
 	webStreamHandler := handler.NewWebStreamHandler(downloader) // New web stream handler
 
 	// Register routes
-	// Register more specific paths first, or make them method-specific
-	mux.HandleFunc("GET /health", healthHandler.Handle) // Made method-specific
+	// Order matters for http.ServeMux: more specific paths should generally come before more general ones.
+	// Method-specific handlers for specific paths.
+	mux.HandleFunc("GET /health", healthHandler.Handle)
 
-	// Download routes
+	// Download routes (more specific paths)
 	mux.HandleFunc("POST /download/video", downloadVideoHandler.Handle)
 	mux.HandleFunc("GET /download/video/{filename}", downloadVideoHandler.ServeDownloadedVideo)
 	mux.HandleFunc("POST /download/video/info", downloadVideoHandler.GetVideoInfo)
@@ -48,21 +49,11 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("DELETE /download/delete/{filename}", downloadVideoHandler.DeleteDownloadedFile) // Re-use for any file deletion
 	mux.HandleFunc("GET /download/list", downloadVideoHandler.ListDownloadedFiles)                  // Re-use for any file listing
 
-	// Stream routes
+	// Stream routes (more specific paths)
 	mux.HandleFunc("POST /stream/video", streamVideoHandler.Handle)
 	mux.HandleFunc("POST /stream/audio", streamAudioHandler.Handle)
 
-	// Web Stream routes - root path for the form, /play for the actual stream
-	// These should be registered after more specific paths to avoid conflicts
-	mux.HandleFunc("GET /play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
-	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)
-	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage) // This should be the most general GET route
-
-	// Serve Swagger UI
-	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
-	slog.Info("Swagger UI available at /swagger/index.html")
-
-	// Enable pprof endpoints if debug mode is enabled
+	// Pprof endpoints (more specific paths, if debug mode is enabled)
 	if cfg.DebugMode {
 		slog.Info("Debug mode enabled: Registering pprof endpoints")
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -70,9 +61,20 @@ func New(cfg *config.Config) *Router {
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		// Alternatively, for more fine-grained control:
-		// mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
 	}
+
+	// Swagger UI (prefix match, should come before the root handler)
+	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
+	slog.Info("Swagger UI available at /swagger/index.html")
+
+	// Web Stream routes - /play is specific, POST / is specific, GET / is the most general.
+	// Register /play before the root handler.
+	mux.HandleFunc("GET /play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
+	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)  // Specific method for root POST
+
+	// The root GET handler should be the last to be registered if it's meant as a fallback.
+	// This ensures more specific GET handlers (like /health, /download/video/{filename}, /play) are matched first.
+	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage)
 
 	return &Router{
 		Mux: mux,
