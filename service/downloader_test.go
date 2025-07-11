@@ -466,24 +466,16 @@ func TestPipedCommandReadCloserClose(t *testing.T) {
 	// but is kept for completeness of the helper struct.
 	// Create dummy commands that just exit
 	cmd1 := exec.Command("bash", "-c", "echo 'data' && exit 0")
-	cmd2 := exec.Command("bash", "-c", "cat /dev/stdin && exit 0")
 
 	stdout1, err := cmd1.StdoutPipe()
 	assert.NoError(t, err, "Failed to get stdout pipe 1")
-	cmd2.Stdin = stdout1
-
-	stdout2, err := cmd2.StdoutPipe()
-	assert.NoError(t, err, "Failed to get stdout pipe 2")
 
 	err = cmd1.Start()
 	assert.NoError(t, err, "Failed to start cmd1")
-	err = cmd2.Start()
-	assert.NoError(t, err, "Failed to start cmd2")
 
-	pcrc := &pipedCommandReadCloser{
-		ReadCloser:   stdout2,
-		primaryCmd:   cmd2,
-		secondaryCmd: cmd1,
+	pcrc := &commandReadCloser{
+		ReadCloser: stdout1,
+		cmd:        cmd1,
 	}
 
 	// Read some data to ensure pipe is active
@@ -494,24 +486,18 @@ func TestPipedCommandReadCloserClose(t *testing.T) {
 
 	// Test with primary command failing
 	cmd1Fail := exec.Command("bash", "-c", "echo 'data' && exit 0")
-	cmd2Fail := exec.Command("bash", "-c", "exit 1") // Primary fails
 
 	stdout1Fail, err := cmd1Fail.StdoutPipe()
 	assert.NoError(t, err, "Failed to get stdout pipe 1 fail")
-	cmd2Fail.Stdin = stdout1Fail
 
-	stdout2Fail, err := cmd2Fail.StdoutPipe()
 	assert.NoError(t, err, "Failed to get stdout pipe 2 fail")
 
 	err = cmd1Fail.Start()
 	assert.NoError(t, err, "Failed to start cmd1Fail")
-	err = cmd2Fail.Start()
-	assert.NoError(t, err, "Failed to start cmd2Fail")
 
-	pcrcFailPrimary := &pipedCommandReadCloser{
-		ReadCloser:   stdout2Fail,
-		primaryCmd:   cmd2Fail,
-		secondaryCmd: cmd1Fail,
+	pcrcFailPrimary := &commandReadCloser{
+		ReadCloser: stdout1Fail,
+		cmd:        cmd1Fail,
 	}
 	err = pcrcFailPrimary.Close()
 	assert.Error(t, err, "Expected error when primary command fails")
@@ -519,26 +505,13 @@ func TestPipedCommandReadCloserClose(t *testing.T) {
 
 	// Test with secondary command failing
 	cmd1FailSecondary := exec.Command("bash", "-c", "exit 1") // Secondary fails
-	cmd2FailSecondary := exec.Command("bash", "-c", "cat /dev/stdin && exit 0")
 
 	stdout1FailSecondary, err := cmd1FailSecondary.StdoutPipe()
 	assert.NoError(t, err, "Failed to get stdout pipe 1 fail secondary")
-	cmd2FailSecondary.Stdin = stdout1FailSecondary
 
-	stdout2FailSecondary, err := cmd2FailSecondary.StdoutPipe()
 	assert.NoError(t, err, "Failed to get stdout pipe 2 fail secondary")
 
 	err = cmd1FailSecondary.Start()
 	assert.NoError(t, err, "Failed to start cmd1FailSecondary")
-	err = cmd2FailSecondary.Start()
-	assert.NoError(t, err, "Failed to start cmd2FailSecondary")
 
-	pcrcFailSecondary := &pipedCommandReadCloser{
-		ReadCloser:   stdout2FailSecondary,
-		primaryCmd:   cmd2FailSecondary,
-		secondaryCmd: cmd1FailSecondary,
-	}
-	err = pcrcFailSecondary.Close()
-	assert.Error(t, err, "Expected error when secondary command fails")
-	assert.Contains(t, err.Error(), "secondary command exited with error", "Expected secondary command exit error message")
 }
