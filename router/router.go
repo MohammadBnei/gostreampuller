@@ -73,7 +73,6 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)  // Specific method for root POST
 
 	// The root GET handler should be the last to be registered if it's meant as a fallback.
-	// This ensures more specific GET handlers (like /health, /download/video/{filename}, /play) are matched first.
 	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage)
 
 	return &Router{
