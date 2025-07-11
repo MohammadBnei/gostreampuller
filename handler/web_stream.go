@@ -248,8 +248,8 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http.Request) {
 	audioURL := r.URL.Query().Get("url")
 	outputFormat := r.URL.Query().Get("outputFormat") // This is not used by ProxyAudio, but kept for Swagger
-	codec := r.URL.Query().Get("codec")               // This is not used by ProxyAudio, but kept for Swagger
-	bitrate := r.URL.Query().Get("bitrate")           // This is not used by ProxyAudio, but kept for Swagger
+	// codec := r.URL.Query().Get("codec")               // This is not used by ProxyAudio, but kept for Swagger
+	// bitrate := r.URL.Query().Get("bitrate")           // This is not used by ProxyAudio, but kept for Swagger
 
 	if audioURL == "" {
 		slog.Error("Missing URL in audio download request")

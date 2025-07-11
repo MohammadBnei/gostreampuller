@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 
 	"gostreampuller/config"
 )
@@ -68,7 +67,7 @@ func (s *Streamer) ProxyVideo(ctx context.Context, w http.ResponseWriter, r *htt
 		// Remove headers that might cause issues or are not needed
 		req.Header.Del("If-Modified-Since")
 		req.Header.Del("If-None-Match")
-		req.Header.Del("Accept-Encoding") // Prevent double compression
+		req.Header.Del("Accept-Encoding")                                                                                                                    // Prevent double compression
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36") // Mimic a browser
 	}
 
