@@ -35,11 +35,6 @@ func New(cfg *config.Config) *Router {
 	streamAudioHandler := handler.NewStreamAudioHandler(downloader)
 	webStreamHandler := handler.NewWebStreamHandler(downloader) // New web stream handler
 
-	// Web Stream routes
-	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage)
-	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)
-	mux.HandleFunc("GET /play", webStreamHandler.PlayWebStream)
-
 	// Register routes
 	mux.HandleFunc("/health", healthHandler.Handle)
 
@@ -56,7 +51,10 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("POST /stream/video", streamVideoHandler.Handle)
 	mux.HandleFunc("POST /stream/audio", streamAudioHandler.Handle)
 
-	// Endpoint for the video player source
+	// Web Stream routes - prefixed with /web
+	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
+	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
+	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
 
 	// Serve Swagger UI
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
