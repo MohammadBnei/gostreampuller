@@ -26,7 +26,7 @@ func New(cfg *config.Config) *Router {
 
 	// Create services
 	downloader := service.NewDownloader(cfg)
-	streamer := service.NewStreamer(cfg, downloader) // Instantiate the new streamer service
+	// streamer := service.NewStreamer(cfg, downloader) // Streamer service is no longer needed for this approach
 
 	// Create handlers
 	healthHandler := handler.NewHealthHandler()
@@ -34,7 +34,7 @@ func New(cfg *config.Config) *Router {
 	downloadAudioHandler := handler.NewDownloadAudioHandler(downloader)
 	streamVideoHandler := handler.NewStreamVideoHandler(downloader) // This handler still uses direct piping
 	streamAudioHandler := handler.NewStreamAudioHandler(downloader) // This handler still uses direct piping
-	webStreamHandler := handler.NewWebStreamHandler(downloader, streamer) // Pass streamer to web handler
+	webStreamHandler := handler.NewWebStreamHandler(downloader)     // Pass only downloader
 
 	// Register routes
 	// Order matters for http.ServeMux: more specific paths should generally come before more general ones.
@@ -71,9 +71,9 @@ func New(cfg *config.Config) *Router {
 	// Web Stream routes - using /web prefix
 	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
 	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
-	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream)                   // Now uses streamer.ProxyVideo
-	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // Now uses streamer.ProxyVideo
-	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Now uses streamer.ProxyAudio
+	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream)                   // Uses downloader.StreamVideo
+	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // Uses downloader.DownloadVideoToTempFile
+	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Uses downloader.DownloadAudioToTempFile
 
 	return &Router{
 		Mux: mux,

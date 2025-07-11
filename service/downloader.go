@@ -90,6 +90,7 @@ func (d *Downloader) GetVideoInfo(ctx context.Context, url string) (*VideoInfo, 
 
 // GetStreamInfo fetches detailed stream information, including direct URLs.
 // It tries to find a suitable video stream based on resolution and codec.
+// This method is still useful for getting detailed format information, even if not directly proxying.
 func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution string, codec string) (*VideoInfo, error) {
 	// Use --list-formats to get all available formats
 	infoArgs := []string{
@@ -290,10 +291,7 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 	return finalFilePath, videoInfo, nil
 }
 
-// StreamVideo streams video from the given URL.
-// This method is re-enabled to provide a direct pipe for streaming/downloading.
-// This method will be removed as streaming is now handled by the Streamer service.
-// It's kept here temporarily for the other handlers that still use it.
+// StreamVideo streams video from the given URL by piping yt-dlp output.
 func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string) (io.ReadCloser, error) {
 	if format == "" {
 		format = "mp4"
@@ -334,9 +332,7 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 	}, nil
 }
 
-// StreamAudio streams audio from the given URL.
-// This method will be removed as streaming is now handled by the Streamer service.
-// It's kept here temporarily for the other handlers that still use it.
+// StreamAudio streams audio from the given URL by piping yt-dlp output.
 func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (io.ReadCloser, error) {
 	if outputFormat == "" {
 		outputFormat = "mp3"
@@ -375,6 +371,102 @@ func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat s
 		ReadCloser: stdoutPipe,
 		cmd:        cmd,
 	}, nil
+}
+
+// DownloadVideoToTempFile downloads a video to a temporary file on the server.
+// Returns the path to the temporary file and any error.
+func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, format string, resolution string, codec string) (string, error) {
+	if format == "" {
+		format = "mp4"
+	}
+	if resolution == "" {
+		resolution = "720"
+	}
+	if codec == "" {
+		codec = "avc1"
+	}
+
+	// Create a temporary file
+	tempFile, err := os.CreateTemp("", "video-download-*.mp4")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	tempFilePath := tempFile.Name()
+	tempFile.Close() // Close immediately, yt-dlp will write to it
+
+	downloadArgs := []string{
+		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
+		"--output", tempFilePath,
+		"--no-progress",
+		"--no-playlist",
+		"--recode-video", format,
+		url,
+	}
+
+	downloadCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, downloadArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for temp video download: %s %s", d.cfg.YTDLPPath, strings.Join(downloadArgs, " ")))
+
+	var downloadStderr bytes.Buffer
+	downloadCmd.Stderr = &downloadStderr
+
+	err = downloadCmd.Run()
+	if err != nil {
+		os.Remove(tempFilePath) // Clean up partial download
+		slog.Error(fmt.Sprintf("yt-dlp temp video download failed: %v\nStderr: %s", err, downloadStderr.String()))
+		return "", fmt.Errorf("yt-dlp temp video download failed: %w, stderr: %s", err, downloadStderr.String())
+	}
+
+	slog.Info(fmt.Sprintf("Video downloaded to temporary file: %s", tempFilePath))
+	return tempFilePath, nil
+}
+
+// DownloadAudioToTempFile downloads audio to a temporary file on the server.
+// Returns the path to the temporary file and any error.
+func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (string, error) {
+	if outputFormat == "" {
+		outputFormat = "mp3"
+	}
+	if codec == "" {
+		codec = "libmp3lame"
+	}
+	if bitrate == "" {
+		bitrate = "128k"
+	}
+
+	// Create a temporary file
+	tempFile, err := os.CreateTemp("", "audio-download-*.mp3") // Use .mp3 as default extension
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	tempFilePath := tempFile.Name()
+	tempFile.Close() // Close immediately, yt-dlp will write to it
+
+	downloadArgs := []string{
+		"--extract-audio",
+		"--audio-format", outputFormat,
+		"--audio-quality", bitrate,
+		"--postprocessor-args", fmt.Sprintf("ffmpeg:-acodec %s", codec),
+		"--output", tempFilePath,
+		"--no-progress",
+		"--no-playlist",
+		url,
+	}
+
+	downloadCmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, downloadArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for temp audio download: %s %s", d.cfg.YTDLPPath, strings.Join(downloadArgs, " ")))
+
+	var downloadStderr bytes.Buffer
+	downloadCmd.Stderr = &downloadStderr
+
+	err = downloadCmd.Run()
+	if err != nil {
+		os.Remove(tempFilePath) // Clean up partial download
+		slog.Error(fmt.Sprintf("yt-dlp temp audio download failed: %v\nStderr: %s", err, downloadStderr.String()))
+		return "", fmt.Errorf("yt-dlp temp audio download failed: %w, stderr: %s", err, downloadStderr.String())
+	}
+
+	slog.Info(fmt.Sprintf("Audio downloaded to temporary file: %s", tempFilePath))
+	return tempFilePath, nil
 }
 
 // commandReadCloser wraps an io.ReadCloser and an exec.Cmd,
