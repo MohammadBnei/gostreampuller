@@ -33,12 +33,13 @@ type DownloadAudioRequest struct {
 
 // DownloadAudioResponse represents the response body for audio download.
 type DownloadAudioResponse struct {
-	FilePath  string            `json:"filePath"`
+	FilePath  string             `json:"filePath"`
 	VideoInfo *service.VideoInfo `json:"videoInfo"` // Re-use VideoInfo for audio metadata
-	Message   string            `json:"message"`
+	Message   string             `json:"message"`
 }
 
 // Handle handles the audio download request.
+//
 //	@Summary		Download an audio file
 //	@Description	Downloads an audio file from a given URL to the server's download directory.
 //	@Tags			download
@@ -84,6 +85,7 @@ func (h *DownloadAudioHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeDownloadedAudio serves a previously downloaded audio file.
+//
 //	@Summary		Serve a downloaded audio file
 //	@Description	Serves an audio file from the server's download directory given its filename.
 //	@Tags			download
