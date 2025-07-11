@@ -40,7 +40,7 @@ func NewWebStreamHandler(downloader *service.Downloader) *WebStreamHandler {
 //	@Tags			web
 //	@Produce		html
 //	@Success		200	{string}	html	"HTML page for video streaming"
-//	@Router			/ [get]
+//	@Router			/web [get]
 func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Request) {
 	err := h.template.Execute(w, nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 //	@Success		200			{string}	html	"HTML page with streamed video and info"
 //	@Failure		400			{string}	string	"Bad Request"
 //	@Failure		500			{string}	string	"Internal Server Error"
-//	@Router			/ [post]
+//	@Router			/web [post]
 func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		slog.Error("Failed to parse form data", "error", err)
@@ -93,7 +93,7 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 	// Prepare data for the template
 	// We'll pass the video info and a URL for the actual stream endpoint
 	// The stream endpoint will be a GET request with URL, resolution, and codec as query parameters
-	streamURL := fmt.Sprintf("/play?url=%s&resolution=%s&codec=%s",
+	streamURL := fmt.Sprintf("/web/play?url=%s&resolution=%s&codec=%s",
 		url.QueryEscape(videoURL),
 		url.QueryEscape(resolution),
 		url.QueryEscape(codec),
@@ -137,8 +137,8 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 //	@Success		200			{file}		file	"Successfully streamed video"
 //	@Failure		400			{string}	string	"Bad Request"
 //	@Failure		500			{string}	string	"Internal Server Error"
-//	@Router			/play [get]
-func (h *WebStreamHandler) PlayWebStream(w http.ResponseWriter, r *http.Request) {
+//	@Router			/web/play [get]
+func (h *PlayWebStream) PlayWebStream(w http.ResponseWriter, r *http.Request) {
 	videoURL := r.URL.Query().Get("url")
 	resolution := r.URL.Query().Get("resolution")
 	codec := r.URL.Query().Get("codec")

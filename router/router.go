@@ -67,13 +67,10 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 	slog.Info("Swagger UI available at /swagger/index.html")
 
-	// Web Stream routes - /play is specific, POST / is specific, GET / is the most general.
-	// Register /play before the root handler.
-	mux.HandleFunc("GET /play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
-	mux.HandleFunc("POST /", webStreamHandler.HandleWebStream)  // Specific method for root POST
-
-	// The root GET handler should be the last to be registered if it's meant as a fallback.
-	mux.HandleFunc("GET /", webStreamHandler.ServeStreamPage)
+	// Web Stream routes - using /web prefix
+	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
+	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
+	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
 
 	return &Router{
 		Mux: mux,
