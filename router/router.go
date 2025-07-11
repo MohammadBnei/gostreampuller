@@ -81,12 +81,11 @@ func New(cfg *config.Config) *Router {
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 	slog.Info("Swagger UI available at /swagger/index.html")
 
-	// Web Stream routes - using /web prefix
+	// Web UI routes
 	r.Group(func(webRouter chi.Router) {
-		webRouter.Get("/", webStreamHandler.ServeMainPage)                            // New root handler
-		webRouter.Post("/load-info", webStreamHandler.HandleLoadInfo)                 // New handler for initial URL submission
-		webRouter.Get("/web", webStreamHandler.ServeStreamPage)                       // Now serves the stream.html with info
-		webRouter.Post("/web", webStreamHandler.HandleOperation)                      // Handles operations from stream.html
+		webRouter.Get("/", webStreamHandler.ServeMainPage)                            // New entry point
+		webRouter.Post("/load-info", webStreamHandler.HandleLoadInfo)                 // Handles initial URL submission
+		webRouter.Get("/web", webStreamHandler.ServeStreamPage)                       // Main streaming/downloading page
 		webRouter.Get("/web/play", webStreamHandler.PlayWebStream)                    // Uses downloader.StreamVideo
 		webRouter.Get("/web/download/video", webStreamHandler.DownloadVideoToBrowser) // Uses downloader.DownloadVideoToTempFile
 		webRouter.Get("/web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Uses downloader.DownloadAudioToTempFile
