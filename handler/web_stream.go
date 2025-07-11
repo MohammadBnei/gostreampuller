@@ -361,7 +361,7 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 	outputFormat := r.URL.Query().Get("outputFormat") // This is not used by ProxyAudio, but kept for Swagger
 	codec := r.URL.Query().Get("codec")               // This is not used by ProxyAudio, but kept for Swagger
 	bitrate := r.URL.Query().Get("bitrate")           // Get bitrate from query parameter
-	progressID := r.URL.Query().Get("progressID")    // Get progress ID
+	progressID := r.URL.Query().Get("progressID")     // Get progress ID
 
 	if audioURL == "" {
 		slog.Error("Missing URL in audio download request")
