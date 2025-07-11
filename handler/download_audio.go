@@ -39,16 +39,16 @@ type DownloadAudioResponse struct {
 }
 
 // Handle handles the audio download request.
-// @Summary Download an audio file
-// @Description Downloads an audio file from a given URL to the server's download directory.
-// @Tags download
-// @Accept json
-// @Produce json
-// @Param request body DownloadAudioRequest true "Audio download request"
-// @Success 200 {object} DownloadAudioResponse "Audio downloaded successfully"
-// @Failure 400 {object} ErrorResponse "Invalid request payload or missing URL"
-// @Failure 500 {object} ErrorResponse "Internal server error during audio download"
-// @Router /download/audio [post]
+//	@Summary		Download an audio file
+//	@Description	Downloads an audio file from a given URL to the server's download directory.
+//	@Tags			download
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		DownloadAudioRequest	true	"Audio download request"
+//	@Success		200		{object}	DownloadAudioResponse	"Audio downloaded successfully"
+//	@Failure		400		{object}	ErrorResponse			"Invalid request payload or missing URL"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error during audio download"
+//	@Router			/download/audio [post]
 func (h *DownloadAudioHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	var req DownloadAudioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -84,16 +84,16 @@ func (h *DownloadAudioHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeDownloadedAudio serves a previously downloaded audio file.
-// @Summary Serve a downloaded audio file
-// @Description Serves an audio file from the server's download directory given its filename.
-// @Tags download
-// @Produce audio/mpeg
-// @Param filename path string true "Filename of the audio to serve"
-// @Success 200 {file} file "Successfully served audio file"
-// @Failure 400 {object} ErrorResponse "Missing filename"
-// @Failure 404 {object} ErrorResponse "File not found"
-// @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /download/audio/{filename} [get]
+//	@Summary		Serve a downloaded audio file
+//	@Description	Serves an audio file from the server's download directory given its filename.
+//	@Tags			download
+//	@Produce		audio/mpeg
+//	@Param			filename	path		string			true	"Filename of the audio to serve"
+//	@Success		200			{file}		file			"Successfully served audio file"
+//	@Failure		400			{object}	ErrorResponse	"Missing filename"
+//	@Failure		404			{object}	ErrorResponse	"File not found"
+//	@Failure		500			{object}	ErrorResponse	"Internal server error"
+//	@Router			/download/audio/{filename} [get]
 func (h *DownloadAudioHandler) ServeDownloadedAudio(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("filename")
 	if filename == "" {

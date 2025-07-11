@@ -39,16 +39,16 @@ type DownloadVideoResponse struct {
 }
 
 // Handle handles the video download request.
-// @Summary Download a video
-// @Description Downloads a video from a given URL to the server's download directory.
-// @Tags download
-// @Accept json
-// @Produce json
-// @Param request body DownloadVideoRequest true "Video download request"
-// @Success 200 {object} DownloadVideoResponse "Video downloaded successfully"
-// @Failure 400 {object} ErrorResponse "Invalid request payload or missing URL"
-// @Failure 500 {object} ErrorResponse "Internal server error during video download"
-// @Router /download/video [post]
+//	@Summary		Download a video
+//	@Description	Downloads a video from a given URL to the server's download directory.
+//	@Tags			download
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		DownloadVideoRequest	true	"Video download request"
+//	@Success		200		{object}	DownloadVideoResponse	"Video downloaded successfully"
+//	@Failure		400		{object}	ErrorResponse			"Invalid request payload or missing URL"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error during video download"
+//	@Router			/download/video [post]
 func (h *DownloadVideoHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	var req DownloadVideoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -84,16 +84,16 @@ func (h *DownloadVideoHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeDownloadedVideo serves a previously downloaded video file.
-// @Summary Serve a downloaded video file
-// @Description Serves a video file from the server's download directory given its filename.
-// @Tags download
-// @Produce video/mp4
-// @Param filename path string true "Filename of the video to serve"
-// @Success 200 {file} file "Successfully served video file"
-// @Failure 400 {object} ErrorResponse "Missing filename"
-// @Failure 404 {object} ErrorResponse "File not found"
-// @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /download/video/{filename} [get]
+//	@Summary		Serve a downloaded video file
+//	@Description	Serves a video file from the server's download directory given its filename.
+//	@Tags			download
+//	@Produce		video/mp4
+//	@Param			filename	path		string			true	"Filename of the video to serve"
+//	@Success		200			{file}		file			"Successfully served video file"
+//	@Failure		400			{object}	ErrorResponse	"Missing filename"
+//	@Failure		404			{object}	ErrorResponse	"File not found"
+//	@Failure		500			{object}	ErrorResponse	"Internal server error"
+//	@Router			/download/video/{filename} [get]
 func (h *DownloadVideoHandler) ServeDownloadedVideo(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("filename")
 	if filename == "" {
@@ -131,16 +131,16 @@ type GetVideoInfoResponse struct {
 }
 
 // GetVideoInfo handles requests to get video information without downloading.
-// @Summary Get video information
-// @Description Retrieves metadata for a video from a given URL without downloading the file.
-// @Tags download
-// @Accept json
-// @Produce json
-// @Param request body GetVideoInfoRequest true "Video info request"
-// @Success 200 {object} GetVideoInfoResponse "Video information retrieved successfully"
-// @Failure 400 {object} ErrorResponse "Invalid request payload or missing URL"
-// @Failure 500 {object} ErrorResponse "Internal server error during video info retrieval"
-// @Router /download/video/info [post]
+//	@Summary		Get video information
+//	@Description	Retrieves metadata for a video from a given URL without downloading the file.
+//	@Tags			download
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		GetVideoInfoRequest		true	"Video info request"
+//	@Success		200		{object}	GetVideoInfoResponse	"Video information retrieved successfully"
+//	@Failure		400		{object}	ErrorResponse			"Invalid request payload or missing URL"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error during video info retrieval"
+//	@Router			/download/video/info [post]
 func (h *DownloadVideoHandler) GetVideoInfo(w http.ResponseWriter, r *http.Request) {
 	var req GetVideoInfoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -175,16 +175,16 @@ func (h *DownloadVideoHandler) GetVideoInfo(w http.ResponseWriter, r *http.Reque
 }
 
 // DeleteDownloadedFile deletes a previously downloaded file.
-// @Summary Delete a downloaded file
-// @Description Deletes a file from the server's download directory given its filename.
-// @Tags download
-// @Produce json
-// @Param filename path string true "Filename of the file to delete"
-// @Success 200 {object} SuccessResponse "File deleted successfully"
-// @Failure 400 {object} ErrorResponse "Missing filename"
-// @Failure 404 {object} ErrorResponse "File not found"
-// @Failure 500 {object} ErrorResponse "Internal server error during file deletion"
-// @Router /download/delete/{filename} [delete]
+//	@Summary		Delete a downloaded file
+//	@Description	Deletes a file from the server's download directory given its filename.
+//	@Tags			download
+//	@Produce		json
+//	@Param			filename	path		string			true	"Filename of the file to delete"
+//	@Success		200			{object}	SuccessResponse	"File deleted successfully"
+//	@Failure		400			{object}	ErrorResponse	"Missing filename"
+//	@Failure		404			{object}	ErrorResponse	"File not found"
+//	@Failure		500			{object}	ErrorResponse	"Internal server error during file deletion"
+//	@Router			/download/delete/{filename} [delete]
 func (h *DownloadVideoHandler) DeleteDownloadedFile(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("filename")
 	if filename == "" {
@@ -231,13 +231,13 @@ type FileInfo struct {
 }
 
 // ListDownloadedFiles lists all files in the download directory.
-// @Summary List downloaded files
-// @Description Lists all files present in the server's configured download directory.
-// @Tags download
-// @Produce json
-// @Success 200 {object} ListDownloadedFilesResponse "Successfully listed downloaded files"
-// @Failure 500 {object} ErrorResponse "Internal server error during file listing"
-// @Router /download/list [get]
+//	@Summary		List downloaded files
+//	@Description	Lists all files present in the server's configured download directory.
+//	@Tags			download
+//	@Produce		json
+//	@Success		200	{object}	ListDownloadedFilesResponse	"Successfully listed downloaded files"
+//	@Failure		500	{object}	ErrorResponse				"Internal server error during file listing"
+//	@Router			/download/list [get]
 func (h *DownloadVideoHandler) ListDownloadedFiles(w http.ResponseWriter, r *http.Request) {
 	downloadDir := h.downloader.GetDownloadDir()
 	files, err := os.ReadDir(downloadDir)

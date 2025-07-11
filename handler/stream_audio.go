@@ -31,16 +31,16 @@ type StreamAudioRequest struct {
 }
 
 // Handle handles the audio streaming request.
-// @Summary Stream an audio file
-// @Description Streams an audio file directly from the source URL.
-// @Tags stream
-// @Accept json
-// @Produce audio/mpeg
-// @Param request body StreamAudioRequest true "Audio stream request"
-// @Success 200 {file} file "Successfully streamed audio"
-// @Failure 400 {object} ErrorResponse "Invalid request payload or missing URL"
-// @Failure 500 {object} ErrorResponse "Internal server error during audio streaming"
-// @Router /stream/audio [post]
+//	@Summary		Stream an audio file
+//	@Description	Streams an audio file directly from the source URL.
+//	@Tags			stream
+//	@Accept			json
+//	@Produce		audio/mpeg
+//	@Param			request	body		StreamAudioRequest	true	"Audio stream request"
+//	@Success		200		{file}		file				"Successfully streamed audio"
+//	@Failure		400		{object}	ErrorResponse		"Invalid request payload or missing URL"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error during audio streaming"
+//	@Router			/stream/audio [post]
 func (h *StreamAudioHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	var req StreamAudioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

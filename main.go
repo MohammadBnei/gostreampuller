@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,14 +15,14 @@ import (
 	"gostreampuller/router"
 )
 
-// @title GoStreamPuller API
-// @version 1.0
-// @description A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.
-// @contact.name API Support
-// @contact.url http://www.example.com/support
-// @contact.email support@example.com
-// @BasePath /
-// @schemes http
+//	@title			GoStreamPuller API
+//	@version		1.0
+//	@description	A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.
+//	@contact.name	API Support
+//	@contact.url	http://www.example.com/support
+//	@contact.email	support@example.com
+//	@BasePath		/
+//	@schemes		http
 func main() {
 	// Set up structured logging
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))

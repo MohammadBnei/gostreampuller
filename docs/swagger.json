@@ -1,82 +1,410 @@
 {
+    "schemes": [
+        "http"
+    ],
     "swagger": "2.0",
     "info": {
-        "description": "A lightweight, containerized REST API service that provides search functionality by proxying requests to DuckDuckGo.",
-        "title": "DuckDuckGo Search API",
+        "description": "A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.",
+        "title": "GoStreamPuller API",
         "contact": {
             "name": "API Support",
             "url": "http://www.example.com/support",
             "email": "support@example.com"
         },
-        "license": {
-            "name": "WTFPL",
-            "url": "http://www.wtfpl.net/"
-        },
         "version": "1.0"
     },
-    "host": "localhost:6060",
     "basePath": "/",
     "paths": {
-        "/search": {
-            "get": {
-                "security": [
-                    {
-                        "BasicAuth": []
-                    }
+        "/download/audio": {
+            "post": {
+                "description": "Downloads an audio file from a given URL to the server's download directory.",
+                "consumes": [
+                    "application/json"
                 ],
-                "description": "Search DuckDuckGo with optional limit and scraping\nThe `scrap` parameter, when set to `true`, enables content scraping from the result URLs.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "search"
+                    "download"
                 ],
-                "summary": "Search DuckDuckGo",
+                "summary": "Download an audio file",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Search query",
-                        "name": "q",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Enable content scraping from result URLs",
-                        "name": "scrap",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of results to return",
-                        "name": "limit",
-                        "in": "query"
+                        "description": "Audio download request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.DownloadAudioRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Audio downloaded successfully",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/handler.SearchResultResponse"
-                            }
+                            "$ref": "#/definitions/handler.DownloadAudioResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handler.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
+                        "description": "Invalid request payload or missing URL",
                         "schema": {
                             "$ref": "#/definitions/handler.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error during audio download",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/audio/{filename}": {
+            "get": {
+                "description": "Serves an audio file from the server's download directory given its filename.",
+                "produces": [
+                    "audio/mpeg"
+                ],
+                "tags": [
+                    "download"
+                ],
+                "summary": "Serve a downloaded audio file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filename of the audio to serve",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully served audio file",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing filename",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "File not found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/delete/{filename}": {
+            "delete": {
+                "description": "Deletes a file from the server's download directory given its filename.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "download"
+                ],
+                "summary": "Delete a downloaded file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filename of the file to delete",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "File deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing filename",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "File not found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during file deletion",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/list": {
+            "get": {
+                "description": "Lists all files present in the server's configured download directory.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "download"
+                ],
+                "summary": "List downloaded files",
+                "responses": {
+                    "200": {
+                        "description": "Successfully listed downloaded files",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ListDownloadedFilesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during file listing",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/video": {
+            "post": {
+                "description": "Downloads a video from a given URL to the server's download directory.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "download"
+                ],
+                "summary": "Download a video",
+                "parameters": [
+                    {
+                        "description": "Video download request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.DownloadVideoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Video downloaded successfully",
+                        "schema": {
+                            "$ref": "#/definitions/handler.DownloadVideoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or missing URL",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during video download",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/video/info": {
+            "post": {
+                "description": "Retrieves metadata for a video from a given URL without downloading the file.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "download"
+                ],
+                "summary": "Get video information",
+                "parameters": [
+                    {
+                        "description": "Video info request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.GetVideoInfoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Video information retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/handler.GetVideoInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or missing URL",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during video info retrieval",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/video/{filename}": {
+            "get": {
+                "description": "Serves a video file from the server's download directory given its filename.",
+                "produces": [
+                    "video/mp4"
+                ],
+                "tags": [
+                    "download"
+                ],
+                "summary": "Serve a downloaded video file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filename of the video to serve",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully served video file",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing filename",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "File not found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/stream/audio": {
+            "post": {
+                "description": "Streams an audio file directly from the source URL.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/mpeg"
+                ],
+                "tags": [
+                    "stream"
+                ],
+                "summary": "Stream an audio file",
+                "parameters": [
+                    {
+                        "description": "Audio stream request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.StreamAudioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully streamed audio",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or missing URL",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during audio streaming",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/stream/video": {
+            "post": {
+                "description": "Streams a video directly from the source URL.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "video/mp4"
+                ],
+                "tags": [
+                    "stream"
+                ],
+                "summary": "Stream a video",
+                "parameters": [
+                    {
+                        "description": "Video stream request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.StreamVideoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully streamed video",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or missing URL",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during video streaming",
                         "schema": {
                             "$ref": "#/definitions/handler.ErrorResponse"
                         }
@@ -86,35 +414,204 @@
         }
     },
     "definitions": {
-        "handler.ErrorResponse": {
+        "handler.DownloadAudioRequest": {
             "type": "object",
             "properties": {
-                "error": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.SearchResultResponse": {
-            "type": "object",
-            "properties": {
-                "content": {
+                "bitrate": {
                     "type": "string"
                 },
-                "snippet": {
+                "codec": {
                     "type": "string"
                 },
-                "title": {
+                "outputFormat": {
                     "type": "string"
                 },
                 "url": {
                     "type": "string"
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "BasicAuth": {
-            "type": "basic"
+        },
+        "handler.DownloadAudioResponse": {
+            "type": "object",
+            "properties": {
+                "filePath": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "videoInfo": {
+                    "description": "Re-use VideoInfo for audio metadata",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/service.VideoInfo"
+                        }
+                    ]
+                }
+            }
+        },
+        "handler.DownloadVideoRequest": {
+            "type": "object",
+            "properties": {
+                "codec": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "resolution": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.DownloadVideoResponse": {
+            "type": "object",
+            "properties": {
+                "filePath": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "videoInfo": {
+                    "$ref": "#/definitions/service.VideoInfo"
+                }
+            }
+        },
+        "handler.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.FileInfo": {
+            "type": "object",
+            "properties": {
+                "modTime": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.GetVideoInfoRequest": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.GetVideoInfoResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "videoInfo": {
+                    "$ref": "#/definitions/service.VideoInfo"
+                }
+            }
+        },
+        "handler.ListDownloadedFilesResponse": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.FileInfo"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.StreamAudioRequest": {
+            "type": "object",
+            "properties": {
+                "bitrate": {
+                    "type": "string"
+                },
+                "codec": {
+                    "type": "string"
+                },
+                "outputFormat": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.StreamVideoRequest": {
+            "type": "object",
+            "properties": {
+                "codec": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "resolution": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.SuccessResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.VideoInfo": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "description": "in seconds",
+                    "type": "integer"
+                },
+                "ext": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "original_url": {
+                    "type": "string"
+                },
+                "thumbnail": {
+                    "description": "URL to thumbnail",
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "upload_date": {
+                    "description": "YYYYMMDD",
+                    "type": "string"
+                },
+                "uploader": {
+                    "type": "string"
+                }
+            }
         }
     }
 }

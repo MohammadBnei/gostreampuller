@@ -31,16 +31,16 @@ type StreamVideoRequest struct {
 }
 
 // Handle handles the video streaming request.
-// @Summary Stream a video
-// @Description Streams a video directly from the source URL.
-// @Tags stream
-// @Accept json
-// @Produce video/mp4
-// @Param request body StreamVideoRequest true "Video stream request"
-// @Success 200 {file} file "Successfully streamed video"
-// @Failure 400 {object} ErrorResponse "Invalid request payload or missing URL"
-// @Failure 500 {object} ErrorResponse "Internal server error during video streaming"
-// @Router /stream/video [post]
+//	@Summary		Stream a video
+//	@Description	Streams a video directly from the source URL.
+//	@Tags			stream
+//	@Accept			json
+//	@Produce		video/mp4
+//	@Param			request	body		StreamVideoRequest	true	"Video stream request"
+//	@Success		200		{file}		file				"Successfully streamed video"
+//	@Failure		400		{object}	ErrorResponse		"Invalid request payload or missing URL"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error during video streaming"
+//	@Router			/stream/video [post]
 func (h *StreamVideoHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	var req StreamVideoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

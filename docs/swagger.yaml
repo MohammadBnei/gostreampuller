@@ -1,81 +1,407 @@
 basePath: /
 definitions:
-  handler.ErrorResponse:
+  handler.DownloadAudioRequest:
     properties:
-      error:
+      bitrate:
         type: string
-    type: object
-  handler.SearchResultResponse:
-    properties:
-      content:
+      codec:
         type: string
-      snippet:
-        type: string
-      title:
+      outputFormat:
         type: string
       url:
         type: string
     type: object
-host: localhost:6060
+  handler.DownloadAudioResponse:
+    properties:
+      filePath:
+        type: string
+      message:
+        type: string
+      videoInfo:
+        allOf:
+        - $ref: '#/definitions/service.VideoInfo'
+        description: Re-use VideoInfo for audio metadata
+    type: object
+  handler.DownloadVideoRequest:
+    properties:
+      codec:
+        type: string
+      format:
+        type: string
+      resolution:
+        type: string
+      url:
+        type: string
+    type: object
+  handler.DownloadVideoResponse:
+    properties:
+      filePath:
+        type: string
+      message:
+        type: string
+      videoInfo:
+        $ref: '#/definitions/service.VideoInfo'
+    type: object
+  handler.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  handler.FileInfo:
+    properties:
+      modTime:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
+  handler.GetVideoInfoRequest:
+    properties:
+      url:
+        type: string
+    type: object
+  handler.GetVideoInfoResponse:
+    properties:
+      message:
+        type: string
+      videoInfo:
+        $ref: '#/definitions/service.VideoInfo'
+    type: object
+  handler.ListDownloadedFilesResponse:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/handler.FileInfo'
+        type: array
+      message:
+        type: string
+    type: object
+  handler.StreamAudioRequest:
+    properties:
+      bitrate:
+        type: string
+      codec:
+        type: string
+      outputFormat:
+        type: string
+      url:
+        type: string
+    type: object
+  handler.StreamVideoRequest:
+    properties:
+      codec:
+        type: string
+      format:
+        type: string
+      resolution:
+        type: string
+      url:
+        type: string
+    type: object
+  handler.SuccessResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  service.VideoInfo:
+    properties:
+      duration:
+        description: in seconds
+        type: integer
+      ext:
+        type: string
+      id:
+        type: string
+      original_url:
+        type: string
+      thumbnail:
+        description: URL to thumbnail
+        type: string
+      title:
+        type: string
+      upload_date:
+        description: YYYYMMDD
+        type: string
+      uploader:
+        type: string
+    type: object
 info:
   contact:
     email: support@example.com
     name: API Support
     url: http://www.example.com/support
-  description: A lightweight, containerized REST API service that provides search
-    functionality by proxying requests to DuckDuckGo.
-  license:
-    name: WTFPL
-    url: http://www.wtfpl.net/
-  title: DuckDuckGo Search API
+  description: A lightweight, containerized REST API service that provides video and
+    audio download and streaming functionalities using yt-dlp and ffmpeg.
+  title: GoStreamPuller API
   version: "1.0"
 paths:
-  /search:
-    get:
-      description: |-
-        Search DuckDuckGo with optional limit and scraping
-        The `scrap` parameter, when set to `true`, enables content scraping from the result URLs.
+  /download/audio:
+    post:
+      consumes:
+      - application/json
+      description: Downloads an audio file from a given URL to the server's download
+        directory.
       parameters:
-      - description: Search query
-        in: query
-        name: q
+      - description: Audio download request
+        in: body
+        name: request
         required: true
-        type: string
-      - description: Enable content scraping from result URLs
-        in: query
-        name: scrap
-        type: boolean
-      - description: Maximum number of results to return
-        in: query
-        name: limit
-        type: integer
+        schema:
+          $ref: '#/definitions/handler.DownloadAudioRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Audio downloaded successfully
           schema:
-            items:
-              $ref: '#/definitions/handler.SearchResultResponse'
-            type: array
+            $ref: '#/definitions/handler.DownloadAudioResponse'
         "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-        "401":
-          description: Unauthorized
+          description: Invalid request payload or missing URL
           schema:
             $ref: '#/definitions/handler.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error during audio download
           schema:
             $ref: '#/definitions/handler.ErrorResponse'
-      security:
-      - BasicAuth: []
-      summary: Search DuckDuckGo
+      summary: Download an audio file
       tags:
-      - search
-securityDefinitions:
-  BasicAuth:
-    type: basic
+      - download
+  /download/audio/{filename}:
+    get:
+      description: Serves an audio file from the server's download directory given
+        its filename.
+      parameters:
+      - description: Filename of the audio to serve
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - audio/mpeg
+      responses:
+        "200":
+          description: Successfully served audio file
+          schema:
+            type: file
+        "400":
+          description: Missing filename
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: File not found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Serve a downloaded audio file
+      tags:
+      - download
+  /download/delete/{filename}:
+    delete:
+      description: Deletes a file from the server's download directory given its filename.
+      parameters:
+      - description: Filename of the file to delete
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: File deleted successfully
+          schema:
+            $ref: '#/definitions/handler.SuccessResponse'
+        "400":
+          description: Missing filename
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: File not found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error during file deletion
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Delete a downloaded file
+      tags:
+      - download
+  /download/list:
+    get:
+      description: Lists all files present in the server's configured download directory.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully listed downloaded files
+          schema:
+            $ref: '#/definitions/handler.ListDownloadedFilesResponse'
+        "500":
+          description: Internal server error during file listing
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: List downloaded files
+      tags:
+      - download
+  /download/video:
+    post:
+      consumes:
+      - application/json
+      description: Downloads a video from a given URL to the server's download directory.
+      parameters:
+      - description: Video download request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DownloadVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Video downloaded successfully
+          schema:
+            $ref: '#/definitions/handler.DownloadVideoResponse'
+        "400":
+          description: Invalid request payload or missing URL
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error during video download
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Download a video
+      tags:
+      - download
+  /download/video/{filename}:
+    get:
+      description: Serves a video file from the server's download directory given
+        its filename.
+      parameters:
+      - description: Filename of the video to serve
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - video/mp4
+      responses:
+        "200":
+          description: Successfully served video file
+          schema:
+            type: file
+        "400":
+          description: Missing filename
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: File not found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Serve a downloaded video file
+      tags:
+      - download
+  /download/video/info:
+    post:
+      consumes:
+      - application/json
+      description: Retrieves metadata for a video from a given URL without downloading
+        the file.
+      parameters:
+      - description: Video info request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.GetVideoInfoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Video information retrieved successfully
+          schema:
+            $ref: '#/definitions/handler.GetVideoInfoResponse'
+        "400":
+          description: Invalid request payload or missing URL
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error during video info retrieval
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Get video information
+      tags:
+      - download
+  /stream/audio:
+    post:
+      consumes:
+      - application/json
+      description: Streams an audio file directly from the source URL.
+      parameters:
+      - description: Audio stream request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.StreamAudioRequest'
+      produces:
+      - audio/mpeg
+      responses:
+        "200":
+          description: Successfully streamed audio
+          schema:
+            type: file
+        "400":
+          description: Invalid request payload or missing URL
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error during audio streaming
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Stream an audio file
+      tags:
+      - stream
+  /stream/video:
+    post:
+      consumes:
+      - application/json
+      description: Streams a video directly from the source URL.
+      parameters:
+      - description: Video stream request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.StreamVideoRequest'
+      produces:
+      - video/mp4
+      responses:
+        "200":
+          description: Successfully streamed video
+          schema:
+            type: file
+        "400":
+          description: Invalid request payload or missing URL
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal server error during video streaming
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Stream a video
+      tags:
+      - stream
+schemes:
+- http
 swagger: "2.0"
