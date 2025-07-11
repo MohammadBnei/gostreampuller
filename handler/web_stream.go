@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url" // Import net/url for URL parsing
@@ -15,12 +14,13 @@ import (
 
 // WebStreamHandler handles web-based video streaming requests.
 type WebStreamHandler struct {
-	downloader *service.Downloader
+	downloader *service.Downloader // Still needed for GetVideoInfo
+	streamer   *service.Streamer   // New field for streaming/proxying
 	template   *template.Template
 }
 
 // NewWebStreamHandler creates a new WebStreamHandler.
-func NewWebStreamHandler(downloader *service.Downloader) *WebStreamHandler {
+func NewWebStreamHandler(downloader *service.Downloader, streamer *service.Streamer) *WebStreamHandler {
 	// Parse the HTML template once during initialization
 	tmpl, err := template.ParseFiles("web/stream.html")
 	if err != nil {
@@ -31,6 +31,7 @@ func NewWebStreamHandler(downloader *service.Downloader) *WebStreamHandler {
 	}
 	return &WebStreamHandler{
 		downloader: downloader,
+		streamer:   streamer,
 		template:   tmpl,
 	}
 }
@@ -169,25 +170,14 @@ func (h *WebStreamHandler) PlayWebStream(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	slog.Info("Attempting to stream video for web player", "url", videoURL, "resolution", resolution, "codec", codec)
+	slog.Info("Attempting to proxy video for web player", "url", videoURL, "resolution", resolution, "codec", codec)
 
-	// Use the re-enabled StreamVideo method
-	readCloser, err := h.downloader.StreamVideo(r.Context(), videoURL, "mp4", resolution, codec)
+	// Use the Streamer service to proxy the video
+	err := h.streamer.ProxyVideo(r.Context(), w, r, videoURL, resolution, codec)
 	if err != nil {
-		slog.Error("Failed to stream video for web player", "error", err, "url", videoURL)
+		slog.Error("Failed to proxy video for web player", "error", err, "url", videoURL)
 		http.Error(w, fmt.Sprintf("Failed to stream video: %v", err), http.StatusInternalServerError)
 		return
-	}
-	defer readCloser.Close()
-
-	w.Header().Set("Content-Type", "video/mp4")
-	w.Header().Set("Transfer-Encoding", "chunked")
-	w.Header().Set("Cache-Control", "no-cache")
-
-	slog.Info("Starting web video stream", "url", videoURL)
-	if _, err := io.Copy(w, readCloser); err != nil {
-		slog.Error("Error while streaming web video", "error", err, "url", videoURL)
-		// Client might see a broken stream.
 	}
 	slog.Info("Web video stream finished", "url", videoURL)
 }
@@ -216,7 +206,7 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 		return
 	}
 
-	slog.Info("Attempting to stream video for direct download", "url", videoURL, "resolution", resolution, "codec", codec)
+	slog.Info("Attempting to proxy video for direct download", "url", videoURL, "resolution", resolution, "codec", codec)
 
 	// Get video info to suggest a filename
 	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), videoURL)
@@ -225,24 +215,18 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 		videoInfo = &service.VideoInfo{Title: "video", Ext: "mp4"} // Fallback
 	}
 
-	// Use the re-enabled StreamVideo method
-	readCloser, err := h.downloader.StreamVideo(r.Context(), videoURL, "mp4", resolution, codec)
-	if err != nil {
-		slog.Error("Failed to stream video for direct download", "error", err, "url", videoURL)
-		http.Error(w, fmt.Sprintf("Failed to download video: %v", err), http.StatusInternalServerError)
-		return
-	}
-	defer readCloser.Close()
-
 	// Set headers for download
 	filename := fmt.Sprintf("%s.%s", sanitizeFilename(videoInfo.Title), "mp4")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	w.Header().Set("Content-Type", "video/mp4")
-	w.Header().Set("Transfer-Encoding", "chunked") // Use chunked for unknown size
+	// Transfer-Encoding and Cache-Control will be handled by the proxy
 
-	slog.Info("Starting direct video download stream", "url", videoURL, "filename", filename)
-	if _, err := io.Copy(w, readCloser); err != nil {
-		slog.Error("Error while streaming video for direct download", "error", err, "url", videoURL)
+	// Use the Streamer service to proxy the video
+	err = h.streamer.ProxyVideo(r.Context(), w, r, videoURL, resolution, codec)
+	if err != nil {
+		slog.Error("Failed to proxy video for direct download", "error", err, "url", videoURL)
+		http.Error(w, fmt.Sprintf("Failed to download video: %v", err), http.StatusInternalServerError)
+		return
 	}
 	slog.Info("Direct video download stream finished", "url", videoURL)
 }
@@ -263,9 +247,9 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 //	@Router			/web/download/audio [get]
 func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http.Request) {
 	audioURL := r.URL.Query().Get("url")
-	outputFormat := r.URL.Query().Get("outputFormat")
-	codec := r.URL.Query().Get("codec")
-	bitrate := r.URL.Query().Get("bitrate")
+	outputFormat := r.URL.Query().Get("outputFormat") // This is not used by ProxyAudio, but kept for Swagger
+	codec := r.URL.Query().Get("codec")               // This is not used by ProxyAudio, but kept for Swagger
+	bitrate := r.URL.Query().Get("bitrate")           // This is not used by ProxyAudio, but kept for Swagger
 
 	if audioURL == "" {
 		slog.Error("Missing URL in audio download request")
@@ -273,7 +257,7 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 		return
 	}
 
-	slog.Info("Attempting to stream audio for direct download", "url", audioURL, "outputFormat", outputFormat)
+	slog.Info("Attempting to proxy audio for direct download", "url", audioURL, "outputFormat", outputFormat)
 
 	// Get video info to suggest a filename
 	videoInfo, err := h.downloader.GetVideoInfo(r.Context(), audioURL)
@@ -282,15 +266,6 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 		videoInfo = &service.VideoInfo{Title: "audio", Ext: "mp3"} // Fallback
 	}
 
-	// Use the StreamAudio method
-	readCloser, err := h.downloader.StreamAudio(r.Context(), audioURL, outputFormat, codec, bitrate)
-	if err != nil {
-		slog.Error("Failed to stream audio for direct download", "error", err, "url", audioURL)
-		http.Error(w, fmt.Sprintf("Failed to download audio: %v", err), http.StatusInternalServerError)
-		return
-	}
-	defer readCloser.Close()
-
 	// Set headers for download
 	if outputFormat == "" {
 		outputFormat = "mp3" // Default for content-type
@@ -298,11 +273,14 @@ func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http
 	filename := fmt.Sprintf("%s.%s", sanitizeFilename(videoInfo.Title), outputFormat)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	w.Header().Set("Content-Type", fmt.Sprintf("audio/%s", outputFormat)) // e.g., audio/mp3
-	w.Header().Set("Transfer-Encoding", "chunked")
+	// Transfer-Encoding and Cache-Control will be handled by the proxy
 
-	slog.Info("Starting direct audio download stream", "url", audioURL, "filename", filename)
-	if _, err := io.Copy(w, readCloser); err != nil {
-		slog.Error("Error while streaming audio for direct download", "error", err, "url", audioURL)
+	// Use the Streamer service to proxy the audio
+	err = h.streamer.ProxyAudio(r.Context(), w, r, audioURL)
+	if err != nil {
+		slog.Error("Failed to proxy audio for direct download", "error", err, "url", audioURL)
+		http.Error(w, fmt.Sprintf("Failed to download audio: %v", err), http.StatusInternalServerError)
+		return
 	}
 	slog.Info("Direct audio download stream finished", "url", audioURL)
 }

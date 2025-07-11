@@ -26,14 +26,15 @@ func New(cfg *config.Config) *Router {
 
 	// Create services
 	downloader := service.NewDownloader(cfg)
+	streamer := service.NewStreamer(cfg, downloader) // Instantiate the new streamer service
 
 	// Create handlers
 	healthHandler := handler.NewHealthHandler()
 	downloadVideoHandler := handler.NewDownloadVideoHandler(downloader)
 	downloadAudioHandler := handler.NewDownloadAudioHandler(downloader)
-	streamVideoHandler := handler.NewStreamVideoHandler(downloader)
-	streamAudioHandler := handler.NewStreamAudioHandler(downloader)
-	webStreamHandler := handler.NewWebStreamHandler(downloader) // New web stream handler
+	streamVideoHandler := handler.NewStreamVideoHandler(downloader) // This handler still uses direct piping
+	streamAudioHandler := handler.NewStreamAudioHandler(downloader) // This handler still uses direct piping
+	webStreamHandler := handler.NewWebStreamHandler(downloader, streamer) // Pass streamer to web handler
 
 	// Register routes
 	// Order matters for http.ServeMux: more specific paths should generally come before more general ones.
@@ -49,7 +50,7 @@ func New(cfg *config.Config) *Router {
 	mux.HandleFunc("DELETE /download/delete/{filename}", downloadVideoHandler.DeleteDownloadedFile) // Re-use for any file deletion
 	mux.HandleFunc("GET /download/list", downloadVideoHandler.ListDownloadedFiles)                  // Re-use for any file listing
 
-	// Stream routes (more specific paths)
+	// Stream routes (these still use direct piping from downloader)
 	mux.HandleFunc("POST /stream/video", streamVideoHandler.Handle)
 	mux.HandleFunc("POST /stream/audio", streamAudioHandler.Handle)
 
@@ -70,9 +71,9 @@ func New(cfg *config.Config) *Router {
 	// Web Stream routes - using /web prefix
 	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
 	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
-	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream) // Endpoint for the video player source
-	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // New direct video download
-	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // New direct audio download
+	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream)                   // Now uses streamer.ProxyVideo
+	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // Now uses streamer.ProxyVideo
+	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Now uses streamer.ProxyAudio
 
 	return &Router{
 		Mux: mux,

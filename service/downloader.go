@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,7 +45,7 @@ type VideoInfo struct {
 	Uploader    string `json:"uploader"`
 	UploadDate  string `json:"upload_date"` // YYYYMMDD
 	Thumbnail   string `json:"thumbnail"`   // URL to thumbnail
-	// Add fields for direct stream URL and file size (though not used for direct piping)
+	// Add fields for direct stream URL and file size
 	DirectStreamURL string `json:"url"` // The actual direct URL of the stream
 	FileSize        int64  `json:"filesize"`
 	FormatID        string `json:"format_id"`
@@ -54,9 +55,12 @@ type VideoInfo struct {
 	FPS             float64 `json:"fps"`
 	Width           int    `json:"width"`
 	Height          int    `json:"height"`
+	// Formats is a slice of available formats, used by GetStreamInfo
+	Formats []VideoInfo `json:"formats"`
 }
 
 // GetVideoInfo fetches video metadata without downloading the file.
+// This is for general info, not necessarily for direct streaming.
 func (d *Downloader) GetVideoInfo(ctx context.Context, url string) (*VideoInfo, error) {
 	infoArgs := []string{
 		"--dump-json",
@@ -82,6 +86,98 @@ func (d *Downloader) GetVideoInfo(ctx context.Context, url string) (*VideoInfo, 
 		return nil, fmt.Errorf("failed to parse yt-dlp info json: %w", err)
 	}
 	return &videoInfo, nil
+}
+
+// GetStreamInfo fetches detailed stream information, including direct URLs.
+// It tries to find a suitable video stream based on resolution and codec.
+func (d *Downloader) GetStreamInfo(ctx context.Context, url string, resolution string, codec string) (*VideoInfo, error) {
+	// Use --list-formats to get all available formats
+	infoArgs := []string{
+		"--dump-json",
+		"--no-playlist",
+		"--restrict-filenames",
+		url,
+	}
+	cmd := exec.CommandContext(ctx, d.cfg.YTDLPPath, infoArgs...)
+	slog.Debug(fmt.Sprintf("Executing yt-dlp for stream info: %s %s", d.cfg.YTDLPPath, strings.Join(infoArgs, " ")))
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		slog.Error(fmt.Sprintf("yt-dlp stream info dump failed: %v\nStdout: %s\nStderr: %s", err, stdout.String(), stderr.String()))
+		return nil, fmt.Errorf("yt-dlp stream info dump failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	var fullInfo VideoInfo // Use VideoInfo directly as it now contains Formats
+	if err := json.Unmarshal(stdout.Bytes(), &fullInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse yt-dlp full info json: %w", err)
+	}
+
+	// Default resolution if not provided
+	targetHeight := 720 // Default to 720p
+	if resolution != "" {
+		if h, err := strconv.Atoi(resolution); err == nil {
+			targetHeight = h
+		}
+	}
+
+	// Default codec if not provided
+	if codec == "" {
+		codec = "avc1" // Default to H.264
+	}
+
+	var bestFormat *VideoInfo
+	for i := range fullInfo.Formats {
+		f := &fullInfo.Formats[i]
+		// Prioritize formats with direct URLs and video streams
+		if f.DirectStreamURL != "" && f.VCodec != "none" {
+			// Try to match resolution and codec
+			if f.Height == targetHeight && strings.Contains(f.VCodec, codec) {
+				bestFormat = f
+				break // Found a perfect match
+			}
+			// If no perfect match, try to find the closest resolution with the preferred codec
+			// Preference: exact codec match, then closest resolution
+			if strings.Contains(f.VCodec, codec) {
+				if bestFormat == nil ||
+					(f.Height <= targetHeight && f.Height > bestFormat.Height) || // Closer to target from below
+					(bestFormat.Height > targetHeight && f.Height < bestFormat.Height) { // Closer to target from above
+					bestFormat = f
+				}
+			}
+		}
+	}
+
+	if bestFormat == nil {
+		// Fallback: if no specific video format found, try to find the best overall video stream
+		for i := range fullInfo.Formats {
+			f := &fullInfo.Formats[i]
+			if f.DirectStreamURL != "" && f.VCodec != "none" {
+				if bestFormat == nil || f.FileSize > bestFormat.FileSize { // Simple heuristic: largest file size
+					bestFormat = f
+				}
+			}
+		}
+	}
+
+	if bestFormat == nil {
+		return nil, fmt.Errorf("no suitable direct stream URL found for video: %s", url)
+	}
+
+	// Populate top-level video info from fullInfo
+	bestFormat.ID = fullInfo.ID
+	bestFormat.Title = fullInfo.Title
+	bestFormat.OriginalURL = fullInfo.OriginalURL
+	bestFormat.Ext = fullInfo.Ext
+	bestFormat.Duration = fullInfo.Duration
+	bestFormat.Uploader = fullInfo.Uploader
+	bestFormat.UploadDate = fullInfo.UploadDate
+	bestFormat.Thumbnail = fullInfo.Thumbnail
+
+	return bestFormat, nil
 }
 
 // DownloadVideoToFile downloads a video from the given URL to a file.
@@ -196,6 +292,8 @@ func (d *Downloader) DownloadAudioToFile(ctx context.Context, url string, output
 
 // StreamVideo streams video from the given URL.
 // This method is re-enabled to provide a direct pipe for streaming/downloading.
+// This method will be removed as streaming is now handled by the Streamer service.
+// It's kept here temporarily for the other handlers that still use it.
 func (d *Downloader) StreamVideo(ctx context.Context, url string, format string, resolution string, codec string) (io.ReadCloser, error) {
 	if format == "" {
 		format = "mp4"
@@ -237,6 +335,8 @@ func (d *Downloader) StreamVideo(ctx context.Context, url string, format string,
 }
 
 // StreamAudio streams audio from the given URL.
+// This method will be removed as streaming is now handled by the Streamer service.
+// It's kept here temporarily for the other handlers that still use it.
 func (d *Downloader) StreamAudio(ctx context.Context, url string, outputFormat string, codec string, bitrate string) (io.ReadCloser, error) {
 	if outputFormat == "" {
 		outputFormat = "mp3"
