@@ -151,7 +151,7 @@
 
         <form id="streamForm" action="/web" method="post">
             <label for="url">Video URL:</label>
-            <input type="text" id="url" name="url" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required value="{{ .VideoInfo.OriginalURL }}">
+            <input type="text" id="url" name="url" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required>
             <button type="submit" name="action" value="load_info">Load Video Info</button>
 
             <div id="options-section">
