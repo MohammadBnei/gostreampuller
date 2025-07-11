@@ -14,8 +14,8 @@ import (
 // Config holds all application configuration.
 type Config struct {
 	Port         string `env:"PORT" default:"8080"`
-	AuthUsername string `env:"AUTH_USERNAME"`
-	AuthPassword string `env:"AUTH_PASSWORD"`
+	AuthUsername string `env:"AUTH_USERNAME" default:"-1"`
+	AuthPassword string `env:"AUTH_PASSWORD" default:"-1"`
 	DebugMode    bool   `env:"DEBUG" default:"false"`
 	LocalMode    bool   `env:"LOCAL_MODE" default:"false"` // When true, bypasses authentication for local testing
 	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
@@ -37,11 +37,11 @@ func New() (*Config, error) {
 
 	// Only check auth credentials if not in local mode
 	if !cfg.LocalMode {
-		if cfg.AuthUsername == "" {
+		if cfg.AuthUsername == "-1" {
 			return nil, errors.New("AUTH_USERNAME environment variable not set")
 		}
 
-		if cfg.AuthPassword == "" {
+		if cfg.AuthPassword == "-1" {
 			return nil, errors.New("AUTH_PASSWORD environment variable not set")
 		}
 	}

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"embed" // Import the embed package
+	// Import the embed package
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -14,10 +14,8 @@ import (
 	"time"
 
 	"gostreampuller/service"
+	"gostreampuller/web"
 )
-
-//go:embed web/*.html
-var content embed.FS // Declare a variable to hold the embedded content
 
 // WebStreamHandler handles web-based video streaming requests.
 type WebStreamHandler struct {
@@ -30,12 +28,12 @@ type WebStreamHandler struct {
 // NewWebStreamHandler creates a new WebStreamHandler.
 func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressManager) *WebStreamHandler {
 	// Use template.ParseFS to parse templates from the embedded file system
-	indexTmpl, err := template.ParseFS(content, "web/index.html")
+	indexTmpl, err := template.ParseFS(web.Content, "index.html")
 	if err != nil {
 		slog.Error("Failed to parse web index template", "error", err)
 		panic(err)
 	}
-	streamTmpl, err := template.ParseFS(content, "web/stream.html")
+	streamTmpl, err := template.ParseFS(web.Content, "stream.html")
 	if err != nil {
 		slog.Error("Failed to parse web stream template", "error", err)
 		panic(err)
