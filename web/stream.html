@@ -150,9 +150,26 @@
         <h1>GoStreamPuller - Web Stream</h1>
 
         <form id="streamForm" action="/web" method="post">
-            <label for="url">Video URL:</label>
-            <input type="text" id="url" name="url" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required>
-            <button type="submit" name="action" value="load_info">Load Video Info</button>
+            <input type="hidden" id="url" name="url" value="{{ .URL }}">
+            <input type="hidden" id="initialProgressID" value="{{ .ProgressID }}">
+
+            <div id="info-display-section">
+                {{ if .VideoInfo }}
+                    <div class="video-info-card">
+                        {{ if .VideoInfo.Thumbnail }}
+                            <img src="{{ .VideoInfo.Thumbnail }}" alt="Video Thumbnail">
+                        {{ end }}
+                        <div class="video-info-details">
+                            <h3>{{ .VideoInfo.Title }}</h3>
+                            <p><strong>Uploader:</strong> {{ .VideoInfo.Uploader }}</p>
+                            <p><strong>Duration:</strong> {{ .VideoInfo.Duration }} seconds</p>
+                            <p><strong>Resolution:</strong> {{ .VideoInfo.Height }}p</p>
+                            <p><strong>Codec:</strong> {{ .VideoInfo.VCodec }}</p>
+                            <p><strong>Original URL:</strong> <a href="{{ .VideoInfo.OriginalURL }}" target="_blank">{{ .VideoInfo.OriginalURL }}</a></p>
+                        </div>
+                    </div>
+                {{ end }}
+            </div>
 
             <div id="options-section">
                 <label for="resolution">Resolution:</label>
@@ -184,24 +201,6 @@
                 </div>
             </div>
         </form>
-
-        <div id="info-display-section">
-            {{ if .VideoInfo }}
-                <div class="video-info-card">
-                    {{ if .VideoInfo.Thumbnail }}
-                        <img src="{{ .VideoInfo.Thumbnail }}" alt="Video Thumbnail">
-                    {{ end }}
-                    <div class="video-info-details">
-                        <h3>{{ .VideoInfo.Title }}</h3>
-                        <p><strong>Uploader:</strong> {{ .VideoInfo.Uploader }}</p>
-                        <p><strong>Duration:</strong> {{ .VideoInfo.Duration }} seconds</p>
-                        <p><strong>Resolution:</strong> {{ .VideoInfo.Height }}p</p>
-                        <p><strong>Codec:</strong> {{ .VideoInfo.VCodec }}</p>
-                        <p><strong>Original URL:</strong> <a href="{{ .VideoInfo.OriginalURL }}" target="_blank">{{ .VideoInfo.OriginalURL }}</a></p>
-                    </div>
-                </div>
-            {{ end }}
-        </div>
 
         <div id="progress-display-section" class="progress-container">
             <h2>Progress</h2>
@@ -236,7 +235,7 @@
 
     <script>
         const streamForm = document.getElementById('streamForm');
-        const urlInput = document.getElementById('url');
+        const urlInput = document.getElementById('url'); // This is now a hidden input
         const resolutionSelect = document.getElementById('resolution');
         const codecInput = document.getElementById('codec');
         const audioQualitySelect = document.getElementById('audioQuality');
@@ -395,50 +394,42 @@
 
             const formData = new FormData(streamForm);
             const action = event.submitter.value; // Get the value of the clicked button
+            formData.append('action', action); // Add action to form data
 
             // Send an AJAX request to the server to initiate the operation
-            // The server will respond with the initial HTML (which includes progressID and VideoInfo)
-            fetch('/web', {
+            fetch('/web', { // Now POSTs to /web
                 method: 'POST',
                 body: new URLSearchParams(formData).toString(),
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 }
             })
-            .then(response => response.text())
-            .then(html => {
-                // Replace the entire body content with the new HTML from the server
-                // This is a simple way to re-render the page with the new data (VideoInfo, ProgressID)
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newContainer = doc.querySelector('.container');
-                const oldContainer = document.querySelector('.container');
-                if (newContainer && oldContainer) {
-                    oldContainer.innerHTML = newContainer.innerHTML;
+            .then(response => response.json()) // Expect JSON response now
+            .then(data => {
+                if (data.error) {
+                    displayError(data.error);
+                    return;
                 }
 
-                // Re-select elements after DOM update
-                // This is crucial because the old elements are gone.
-                // Re-initialize constants that refer to DOM elements
-                // (This is a simplified approach; a more robust SPA-like update would be better for complex UIs)
-                // For now, we'll rely on the server sending back the full page with the correct data.
-                // The script block itself will be re-executed.
-                // To avoid re-executing the script, we should put the script in a separate file
-                // or ensure it's only run once. For this example, we'll just re-run it.
+                // Update hidden inputs with new data from the server
+                document.getElementById('progressIDHidden').value = data.progressID || '';
+                document.getElementById('actionHidden').value = data.action || '';
+                document.getElementById('videoInfoJSONHidden').value = JSON.stringify(data.videoInfo || {});
+                document.getElementById('streamURLHidden').value = data.streamURL || '';
+                document.getElementById('downloadVideoURLHidden').value = data.downloadVideoURL || '';
+                document.getElementById('downloadAudioURLHidden').value = data.downloadAudioURL || '';
 
-                // Get the progressID and action from the newly rendered page
-                const newProgressID = doc.querySelector('#progressIDHidden') ? doc.querySelector('#progressIDHidden').value : null;
-                const newAction = doc.querySelector('#actionHidden') ? doc.querySelector('#actionHidden').value : null;
-                const newVideoInfoJSON = doc.querySelector('#videoInfoJSONHidden') ? doc.querySelector('#videoInfoJSONHidden').value : null;
-                const newStreamURL = doc.querySelector('#streamURLHidden') ? doc.querySelector('#streamURLHidden').value : null;
-                const newDownloadVideoURL = doc.querySelector('#downloadVideoURLHidden') ? doc.querySelector('#downloadVideoURLHidden').value : null;
-                const newDownloadAudioURL = doc.querySelector('#downloadAudioURLHidden') ? doc.querySelector('#downloadAudioURLHidden').value : null;
-
+                // Re-populate the UI elements based on the new data
+                const newProgressID = data.progressID;
+                const newAction = data.action;
+                const newVideoInfo = data.videoInfo;
+                const newStreamURL = data.streamURL;
+                const newDownloadVideoURL = data.downloadVideoURL;
+                const newDownloadAudioURL = data.downloadAudioURL;
 
                 // If progressID is available, start SSE
                 if (newProgressID) {
-                    const videoInfo = newVideoInfoJSON ? JSON.parse(newVideoInfoJSON) : null;
-                    updateVideoInfoCard(videoInfo); // Update card with info from the new response
+                    updateVideoInfoCard(newVideoInfo); // Update card with info from the new response
 
                     initSSE(newProgressID, newAction);
 
@@ -500,17 +491,8 @@
             videoPlayerSection.style.display = 'none';
         }
 
-        // Handle URL input change to fetch info immediately (optional, but good UX)
-        urlInput.addEventListener('change', function() {
-            // When the URL changes, clear previous results and hide player/progress
-            infoDisplaySection.style.display = 'none';
-            optionsSection.style.display = 'none';
-            progressDisplaySection.style.display = 'none';
-            videoPlayerSection.style.display = 'none';
-            closeSSE(); // Close any active SSE connection
-            updateProgressBar(0, 'Enter URL and select action', 'idle');
-            errorMessage.style.display = 'none';
-        });
+        // The URL input is now hidden and its value is set by the server.
+        // No need for a 'change' listener on it anymore.
     </script>
 </body>
 </html>

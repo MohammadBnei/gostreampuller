@@ -69,8 +69,10 @@ func New(cfg *config.Config) *Router {
 	slog.Info("Swagger UI available at /swagger/index.html")
 
 	// Web Stream routes - using /web prefix
-	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage)
-	mux.HandleFunc("POST /web", webStreamHandler.HandleWebStream)
+	mux.HandleFunc("GET /", webStreamHandler.ServeMainPage) // New root handler
+	mux.HandleFunc("POST /load-info", webStreamHandler.HandleLoadInfo) // New handler for initial URL submission
+	mux.HandleFunc("GET /web", webStreamHandler.ServeStreamPage) // Now serves the stream.html with info
+	mux.HandleFunc("POST /web", webStreamHandler.HandleOperation) // Handles operations from stream.html
 	mux.HandleFunc("GET /web/play", webStreamHandler.PlayWebStream)                   // Uses downloader.StreamVideo
 	mux.HandleFunc("GET /web/download/video", webStreamHandler.DownloadVideoToBrowser) // Uses downloader.DownloadVideoToTempFile
 	mux.HandleFunc("GET /web/download/audio", webStreamHandler.DownloadAudioToBrowser) // Uses downloader.DownloadAudioToTempFile
