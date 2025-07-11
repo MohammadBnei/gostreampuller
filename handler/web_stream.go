@@ -253,13 +253,13 @@ func (h *WebStreamHandler) DownloadVideoToBrowser(w http.ResponseWriter, r *http
 //	@Description	Streams audio content directly to the browser, triggering a download.
 //	@Tags			web
 //	@Produce		audio/mpeg
-//	@Param			url			query		string	true	"Audio URL"
+//	@Param			url				query		string	true	"Audio URL"
 //	@Param			outputFormat	query		string	false	"Output format (e.g., mp3, aac)"
-//	@Param			codec		query		string	false	"Audio Codec (e.g., libmp3lame)"
-//	@Param			bitrate		query		string	false	"Audio Bitrate (e.g., 128k)"
-//	@Success		200			{file}		file	"Successfully streamed audio for download"
-//	@Failure		400			{string}	string	"Bad Request"
-//	@Failure		500			{string}	string	"Internal Server Error"
+//	@Param			codec			query		string	false	"Audio Codec (e.g., libmp3lame)"
+//	@Param			bitrate			query		string	false	"Audio Bitrate (e.g., 128k)"
+//	@Success		200				{file}		file	"Successfully streamed audio for download"
+//	@Failure		400				{string}	string	"Bad Request"
+//	@Failure		500				{string}	string	"Internal Server Error"
 //	@Router			/web/download/audio [get]
 func (h *WebStreamHandler) DownloadAudioToBrowser(w http.ResponseWriter, r *http.Request) {
 	audioURL := r.URL.Query().Get("url")
