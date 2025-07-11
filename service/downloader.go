@@ -386,17 +386,13 @@ func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, fo
 		codec = "avc1"
 	}
 
-	// Create a temporary file
-	tempFile, err := os.CreateTemp("", "video-download-*.mp4")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temporary file: %w", err)
-	}
-	tempFilePath := tempFile.Name()
-	tempFile.Close() // Close immediately, yt-dlp will write to it
+	// Generate a unique filename in the configured download directory
+	uniqueFilename := fmt.Sprintf("video-download-%d.mp4", time.Now().UnixNano())
+	finalFilePath := filepath.Join(d.cfg.DownloadDir, uniqueFilename)
 
 	downloadArgs := []string{
 		"--format", fmt.Sprintf("bestvideo[height<=%s][vcodec*=%s]+bestaudio/best", resolution, codec),
-		"--output", tempFilePath,
+		"--output", finalFilePath,
 		"--no-progress",
 		"--no-playlist",
 		"--recode-video", format,
@@ -409,15 +405,15 @@ func (d *Downloader) DownloadVideoToTempFile(ctx context.Context, url string, fo
 	var downloadStderr bytes.Buffer
 	downloadCmd.Stderr = &downloadStderr
 
-	err = downloadCmd.Run()
+	err := downloadCmd.Run()
 	if err != nil {
-		os.Remove(tempFilePath) // Clean up partial download
+		// Do not remove file here; handler will decide based on error
 		slog.Error(fmt.Sprintf("yt-dlp temp video download failed: %v\nStderr: %s", err, downloadStderr.String()))
 		return "", fmt.Errorf("yt-dlp temp video download failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
-	slog.Info(fmt.Sprintf("Video downloaded to temporary file: %s", tempFilePath))
-	return tempFilePath, nil
+	slog.Info(fmt.Sprintf("Video downloaded to: %s", finalFilePath))
+	return finalFilePath, nil
 }
 
 // DownloadAudioToTempFile downloads audio to a temporary file on the server.
@@ -433,20 +429,16 @@ func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, ou
 		bitrate = "128k"
 	}
 
-	// Create a temporary file
-	tempFile, err := os.CreateTemp("", "audio-download-*.mp3") // Use .mp3 as default extension
-	if err != nil {
-		return "", fmt.Errorf("failed to create temporary file: %w", err)
-	}
-	tempFilePath := tempFile.Name()
-	tempFile.Close() // Close immediately, yt-dlp will write to it
+	// Generate a unique filename in the configured download directory
+	uniqueFilename := fmt.Sprintf("audio-download-%d.%s", time.Now().UnixNano(), outputFormat)
+	finalFilePath := filepath.Join(d.cfg.DownloadDir, uniqueFilename)
 
 	downloadArgs := []string{
 		"--extract-audio",
 		"--audio-format", outputFormat,
 		"--audio-quality", bitrate,
 		"--postprocessor-args", fmt.Sprintf("ffmpeg:-acodec %s", codec),
-		"--output", tempFilePath,
+		"--output", finalFilePath,
 		"--no-progress",
 		"--no-playlist",
 		url,
@@ -458,15 +450,15 @@ func (d *Downloader) DownloadAudioToTempFile(ctx context.Context, url string, ou
 	var downloadStderr bytes.Buffer
 	downloadCmd.Stderr = &downloadStderr
 
-	err = downloadCmd.Run()
+	err := downloadCmd.Run()
 	if err != nil {
-		os.Remove(tempFilePath) // Clean up partial download
+		// Do not remove file here; handler will decide based on error
 		slog.Error(fmt.Sprintf("yt-dlp temp audio download failed: %v\nStderr: %s", err, downloadStderr.String()))
 		return "", fmt.Errorf("yt-dlp temp audio download failed: %w, stderr: %s", err, downloadStderr.String())
 	}
 
-	slog.Info(fmt.Sprintf("Audio downloaded to temporary file: %s", tempFilePath))
-	return tempFilePath, nil
+	slog.Info(fmt.Sprintf("Audio downloaded to: %s", finalFilePath))
+	return finalFilePath, nil
 }
 
 // commandReadCloser wraps an io.ReadCloser and an exec.Cmd,
