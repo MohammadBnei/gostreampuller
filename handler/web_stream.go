@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url" // Import net/url for URL parsing
@@ -35,12 +35,12 @@ func NewWebStreamHandler(downloader *service.Downloader) *WebStreamHandler {
 }
 
 // ServeStreamPage serves the HTML page with the video streaming form.
-// @Summary Serve web streaming page
-// @Description Serves an HTML page that allows users to input a URL and stream video.
-// @Tags web
-// @Produce html
-// @Success 200 {string} html "HTML page for video streaming"
-// @Router /web/stream [get]
+//	@Summary		Serve web streaming page
+//	@Description	Serves an HTML page that allows users to input a URL and stream video.
+//	@Tags			web
+//	@Produce		html
+//	@Success		200	{string}	html	"HTML page for video streaming"
+//	@Router			/web/stream [get]
 func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Request) {
 	err := h.template.Execute(w, nil)
 	if err != nil {
@@ -51,18 +51,18 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 
 // HandleWebStream handles the form submission for web-based video streaming.
 // This function will fetch video info and then redirect to a streaming endpoint.
-// @Summary Handle web stream request
-// @Description Processes the form submission for web-based video streaming, fetches video info, and redirects to the stream.
-// @Tags web
-// @Accept x-www-form-urlencoded
-// @Produce html
-// @Param url formData string true "Video URL"
-// @Param resolution formData string false "Video Resolution (e.g., 720, 1080)"
-// @Param codec formData string false "Video Codec (e.g., avc1, vp9)"
-// @Success 200 {string} html "HTML page with streamed video and info"
-// @Failure 400 {string} string "Bad Request"
-// @Failure 500 {string} string "Internal Server Error"
-// @Router /web/stream [post]
+//	@Summary		Handle web stream request
+//	@Description	Processes the form submission for web-based video streaming, fetches video info, and redirects to the stream.
+//	@Tags			web
+//	@Accept			x-www-form-urlencoded
+//	@Produce		html
+//	@Param			url			formData	string	true	"Video URL"
+//	@Param			resolution	formData	string	false	"Video Resolution (e.g., 720, 1080)"
+//	@Param			codec		formData	string	false	"Video Codec (e.g., avc1, vp9)"
+//	@Success		200			{string}	html	"HTML page with streamed video and info"
+//	@Failure		400			{string}	string	"Bad Request"
+//	@Failure		500			{string}	string	"Internal Server Error"
+//	@Router			/web/stream [post]
 func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		slog.Error("Failed to parse form data", "error", err)
@@ -127,17 +127,17 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 
 // PlayWebStream handles the actual video streaming for the web player.
 // This is a GET endpoint that receives parameters from the HandleWebStream POST.
-// @Summary Play web stream
-// @Description Streams the video content directly to the browser based on query parameters.
-// @Tags web
-// @Produce video/mp4
-// @Param url query string true "Video URL"
-// @Param resolution query string false "Video Resolution (e.g., 720, 1080)"
-// @Param codec query string false "Video Codec (e.g., avc1, vp9)"
-// @Success 200 {file} file "Successfully streamed video"
-// @Failure 400 {string} string "Bad Request"
-// @Failure 500 {string} string "Internal Server Error"
-// @Router /web/stream/play [get]
+//	@Summary		Play web stream
+//	@Description	Streams the video content directly to the browser based on query parameters.
+//	@Tags			web
+//	@Produce		video/mp4
+//	@Param			url			query		string	true	"Video URL"
+//	@Param			resolution	query		string	false	"Video Resolution (e.g., 720, 1080)"
+//	@Param			codec		query		string	false	"Video Codec (e.g., avc1, vp9)"
+//	@Success		200			{file}		file	"Successfully streamed video"
+//	@Failure		400			{string}	string	"Bad Request"
+//	@Failure		500			{string}	string	"Internal Server Error"
+//	@Router			/web/stream/play [get]
 func (h *WebStreamHandler) PlayWebStream(w http.ResponseWriter, r *http.Request) {
 	videoURL := r.URL.Query().Get("url")
 	resolution := r.URL.Query().Get("resolution")

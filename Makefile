@@ -59,4 +59,4 @@ dev:
 
 swag:
 	swag fmt
-	swag init
+	swag init 

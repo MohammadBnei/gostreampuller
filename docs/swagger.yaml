@@ -402,6 +402,93 @@ paths:
       summary: Stream a video
       tags:
       - stream
+  /web/stream:
+    get:
+      description: Serves an HTML page that allows users to input a URL and stream
+        video.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML page for video streaming
+          schema:
+            type: string
+      summary: Serve web streaming page
+      tags:
+      - web
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Processes the form submission for web-based video streaming, fetches
+        video info, and redirects to the stream.
+      parameters:
+      - description: Video URL
+        in: formData
+        name: url
+        required: true
+        type: string
+      - description: Video Resolution (e.g., 720, 1080)
+        in: formData
+        name: resolution
+        type: string
+      - description: Video Codec (e.g., avc1, vp9)
+        in: formData
+        name: codec
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML page with streamed video and info
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Handle web stream request
+      tags:
+      - web
+  /web/stream/play:
+    get:
+      description: Streams the video content directly to the browser based on query
+        parameters.
+      parameters:
+      - description: Video URL
+        in: query
+        name: url
+        required: true
+        type: string
+      - description: Video Resolution (e.g., 720, 1080)
+        in: query
+        name: resolution
+        type: string
+      - description: Video Codec (e.g., avc1, vp9)
+        in: query
+        name: codec
+        type: string
+      produces:
+      - video/mp4
+      responses:
+        "200":
+          description: Successfully streamed video
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Play web stream
+      tags:
+      - web
 schemes:
 - http
 swagger: "2.0"

@@ -415,6 +415,133 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/web/stream": {
+            "get": {
+                "description": "Serves an HTML page that allows users to input a URL and stream video.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Serve web streaming page",
+                "responses": {
+                    "200": {
+                        "description": "HTML page for video streaming",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Processes the form submission for web-based video streaming, fetches video info, and redirects to the stream.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Handle web stream request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Video URL",
+                        "name": "url",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Video Resolution (e.g., 720, 1080)",
+                        "name": "resolution",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Video Codec (e.g., avc1, vp9)",
+                        "name": "codec",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HTML page with streamed video and info",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/web/stream/play": {
+            "get": {
+                "description": "Streams the video content directly to the browser based on query parameters.",
+                "produces": [
+                    "video/mp4"
+                ],
+                "tags": [
+                    "web"
+                ],
+                "summary": "Play web stream",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Video URL",
+                        "name": "url",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Video Resolution (e.g., 720, 1080)",
+                        "name": "resolution",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Video Codec (e.g., avc1, vp9)",
+                        "name": "codec",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully streamed video",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -630,6 +757,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
+	LeftDelim:        "{{",
+	RightDelim:       "}}",
 }
 
 func init() {
