@@ -35,6 +35,7 @@ func NewWebStreamHandler(downloader *service.Downloader) *WebStreamHandler {
 }
 
 // ServeStreamPage serves the HTML page with the video streaming form.
+//
 //	@Summary		Serve web streaming page
 //	@Description	Serves an HTML page that allows users to input a URL and stream video.
 //	@Tags			web
@@ -51,6 +52,7 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 
 // HandleWebStream handles the form submission for web-based video streaming.
 // This function will fetch video info and then redirect to a streaming endpoint.
+//
 //	@Summary		Handle web stream request
 //	@Description	Processes the form submission for web-based video streaming, fetches video info, and redirects to the stream.
 //	@Tags			web
@@ -127,6 +129,7 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 
 // PlayWebStream handles the actual video streaming for the web player.
 // This is a GET endpoint that receives parameters from the HandleWebStream POST.
+//
 //	@Summary		Play web stream
 //	@Description	Streams the video content directly to the browser based on query parameters.
 //	@Tags			web
@@ -138,7 +141,7 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 //	@Failure		400			{string}	string	"Bad Request"
 //	@Failure		500			{string}	string	"Internal Server Error"
 //	@Router			/web/play [get]
-func (h *PlayWebStream) PlayWebStream(w http.ResponseWriter, r *http.Request) {
+func (h *WebStreamHandler) PlayWebStream(w http.ResponseWriter, r *http.Request) {
 	videoURL := r.URL.Query().Get("url")
 	resolution := r.URL.Query().Get("resolution")
 	codec := r.URL.Query().Get("codec")
