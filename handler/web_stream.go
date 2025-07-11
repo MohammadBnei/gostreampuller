@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url" // Import net/url for URL parsing
-	"strconv"
 	"strings"
 
 	"gostreampuller/service"
@@ -109,7 +108,6 @@ func (h *WebStreamHandler) HandleWebStream(w http.ResponseWriter, r *http.Reques
 		url.QueryEscape(codec),
 	)
 	downloadAudioURL := fmt.Sprintf("/web/download/audio?url=%s", url.QueryEscape(videoURL))
-
 
 	// Marshal videoInfo to pretty JSON for display
 	videoInfoJSON, err := json.MarshalIndent(videoInfo, "", "  ")
@@ -315,10 +313,10 @@ func sanitizeFilename(s string) string {
 	s = strings.ReplaceAll(s, "<", "_")
 	s = strings.ReplaceAll(s, ">", "_")
 	s = strings.ReplaceAll(s, "|", "_")
-	s = strings.ReplaceAll(s, " ", "_") // Replace spaces with underscores
+	s = strings.ReplaceAll(s, " ", "_")  // Replace spaces with underscores
 	s = strings.ReplaceAll(s, "__", "_") // Replace double underscores
-	s = strings.Trim(s, "_") // Trim leading/trailing underscores
-	if len(s) > 200 { // Limit filename length
+	s = strings.Trim(s, "_")             // Trim leading/trailing underscores
+	if len(s) > 200 {                    // Limit filename length
 		s = s[:200]
 	}
 	return s
