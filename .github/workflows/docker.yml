@@ -66,7 +66,7 @@ jobs:
           go-version: stable
 
       - name: Install tools
-        run: apt install yt-dlp ffmpeg -y
+        run: sudo apt install yt-dlp ffmpeg -y
 
       - name: Test
         run: |
