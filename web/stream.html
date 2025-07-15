@@ -226,7 +226,6 @@
         const operationForm = document.getElementById('operationForm');
         const urlHiddenInput = document.getElementById('url');
         const progressIDHiddenInput = document.getElementById('progressIDHidden');
-        const appURLHiddenInput = document.getElementById('appURLHidden'); // New hidden input
 
         const resolutionSelect = document.getElementById('resolution');
         const codecInput = document.getElementById('codec');
@@ -435,7 +434,7 @@
         const initialURL = '{{ .URL }}';
         const initialAppURL = '{{ .AppURL }}'; // Get initial AppURL
 
-        if (initialVideoInfoJSON && initialProgressID && initialURL && initialAppURL) {
+        if (initialVideoInfoJSON && initialProgressID && initialURL) {
             const videoInfo = JSON.parse(initialVideoInfoJSON);
             updateVideoInfoCard(videoInfo);
             // No need to call initSSE here, as it's only for info loading.
