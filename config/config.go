@@ -8,28 +8,32 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/BoRuDar/configuration/v5"
+	"github.com/num30/config" // Updated import
 )
 
 // Config holds all application configuration.
 type Config struct {
 	Port         string `env:"PORT" default:"8080"`
-	AuthUsername string `env:"AUTH_USERNAME" default:"-1"`
-	AuthPassword string `env:"AUTH_PASSWORD" default:"-1"`
+	AuthUsername string `default:""` // No longer using -1 as default for optional fields
+	AuthPassword string `default:""` // No longer using -1 as default for optional fields
 	DebugMode    bool   `env:"DEBUG" default:"false"`
 	LocalMode    bool   `env:"LOCAL_MODE" default:"false"` // When true, bypasses authentication for local testing
 	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
 	FFMPEGPath   string `env:"FFMPEG_PATH" default:"ffmpeg"`
 	DownloadDir  string `env:"DOWNLOAD_DIR" default:"./data"` // Directory to store downloaded files
-	AppURL       string `env:"APP_URL" default:"http://localhost:8080"` // Base URL of the application for redirects and external links
+	AppURL       string `default:"http://localhost:8080"`     // Base URL of the application for redirects and external links
 }
 
 // New creates a new Config with values from environment variables.
 // Returns an error if required authentication credentials are missing.
 func New() (*Config, error) {
-	cfg, err := configuration.FromEnvAndDefault[Config]()
+	var cfg Config
+	// Use num30/config's NewConfReader and Read methods
+	// No need for `env` tags if field names match env var names (case-insensitive, underscores for camelCase)
+	// or if `envvar` tag is used. Default behavior is usually sufficient.
+	err := config.NewConfReader("gostreampuller").Read(&cfg) // "gostreampuller" can be used as config file name prefix
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read configuration: %w", err)
 	}
 
 	if cfg.LocalMode {
@@ -38,11 +42,11 @@ func New() (*Config, error) {
 
 	// Only check auth credentials if not in local mode
 	if !cfg.LocalMode {
-		if cfg.AuthUsername == "-1" {
+		if cfg.AuthUsername == "" { // Check for empty string now
 			return nil, errors.New("AUTH_USERNAME environment variable not set")
 		}
 
-		if cfg.AuthPassword == "-1" {
+		if cfg.AuthPassword == "" { // Check for empty string now
 			return nil, errors.New("AUTH_PASSWORD environment variable not set")
 		}
 	}
@@ -84,7 +88,7 @@ func New() (*Config, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
 
-	return cfg, nil
+	return &cfg, nil
 }
 
 // checkExecutable verifies if an executable exists and is runnable.
