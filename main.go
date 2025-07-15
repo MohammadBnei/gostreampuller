@@ -15,14 +15,14 @@ import (
 	"gostreampuller/router"
 )
 
-//	@title			GoStreamPuller API
-//	@version		1.0
-//	@description	A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.
-//	@contact.name	API Support
-//	@contact.url	http://www.example.com/support
-//	@contact.email	support@example.com
-//	@BasePath		/
-//	@schemes		http
+// @title			GoStreamPuller API
+// @version		1.0
+// @description	A lightweight, containerized REST API service that provides video and audio download and streaming functionalities using yt-dlp and ffmpeg.
+// @contact.name	API Support
+// @contact.url	http://www.example.com/support
+// @contact.email	support@example.com
+// @BasePath		/
+// @schemes		http
 func main() {
 	// Set up structured logging
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -54,7 +54,9 @@ func main() {
 		if cfg.LocalMode {
 			slog.Warn("LOCAL_MODE enabled: Authentication is bypassed")
 		}
-		slog.Info(fmt.Sprintf("Application URL set to: %s", cfg.AppURL))
+		if cfg.AppURL != "" {
+			slog.Info(fmt.Sprintf("Application URL set to: %s", cfg.AppURL))
+		}
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Server failed to listen", "error", err)
 			os.Exit(1) // Exit if server fails to start

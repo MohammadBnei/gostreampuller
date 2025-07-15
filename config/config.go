@@ -13,25 +13,23 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Port         string `env:"PORT" default:"8080"`
-	AuthUsername string `default:""` // No longer using -1 as default for optional fields
-	AuthPassword string `default:""` // No longer using -1 as default for optional fields
-	DebugMode    bool   `env:"DEBUG" default:"false"`
-	LocalMode    bool   `env:"LOCAL_MODE" default:"false"` // When true, bypasses authentication for local testing
-	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
-	FFMPEGPath   string `env:"FFMPEG_PATH" default:"ffmpeg"`
-	DownloadDir  string `env:"DOWNLOAD_DIR" default:"./data"` // Directory to store downloaded files
-	AppURL       string `default:"http://localhost:8080"`     // Base URL of the application for redirects and external links
+	Port         string `envvar:"PORT" default:"8080"`
+	AuthUsername string `envvar:"AUTH_USERNAME"`
+	AuthPassword string `envvar:"AUTH_PASSWORD"`
+	DebugMode    bool   `envvar:"DEBUG" default:"false"`
+	LocalMode    bool   `envvar:"LOCAL_MODE" default:"false"`
+	YTDLPPath    string `envvar:"YTDLP_PATH" default:"yt-dlp"`
+	FFMPEGPath   string `envvar:"FFMPEG_PATH" default:"ffmpeg"`
+	DownloadDir  string `envvar:"DOWNLOAD_DIR" default:"./data"`
+	AppURL       string `envvar:"APP_URL"`
 }
 
 // New creates a new Config with values from environment variables.
 // Returns an error if required authentication credentials are missing.
 func New() (*Config, error) {
 	var cfg Config
-	// Use num30/config's NewConfReader and Read methods
-	// No need for `env` tags if field names match env var names (case-insensitive, underscores for camelCase)
-	// or if `envvar` tag is used. Default behavior is usually sufficient.
-	err := config.NewConfReader("gostreampuller").Read(&cfg) // "gostreampuller" can be used as config file name prefix
+
+	err := config.NewConfReader("gostreampuller").Read(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read configuration: %w", err)
 	}

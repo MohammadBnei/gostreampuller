@@ -42,7 +42,7 @@ func New(cfg *config.Config) *Router {
 	downloadAudioHandler := handler.NewDownloadAudioHandler(downloader)
 	streamVideoHandler := handler.NewStreamVideoHandler(downloader)
 	streamAudioHandler := handler.NewStreamAudioHandler(downloader)
-	webStreamHandler := handler.NewWebStreamHandler(downloader, progressManager) // Pass ProgressManager to web handler
+	webStreamHandler := handler.NewWebStreamHandler(downloader, progressManager, cfg) // Pass ProgressManager to web handler
 
 	// Public routes
 	r.Get("/health", healthHandler.Handle)
@@ -67,7 +67,7 @@ func New(cfg *config.Config) *Router {
 
 	// Pprof endpoints (if debug mode is enabled)
 	if cfg.DebugMode {
-		slog.Info("Debug mode enabled: Registering pprof endpoints")
+		slog.Warn("Debug mode enabled: Registering pprof endpoints")
 		r.Group(func(pprofRouter chi.Router) {
 			pprofRouter.Get("/debug/pprof/*", http.HandlerFunc(pprof.Index))
 			pprofRouter.Get("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
