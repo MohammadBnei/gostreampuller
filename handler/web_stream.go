@@ -59,9 +59,11 @@ func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressMan
 //	@Router			/ [get]
 func (h *WebStreamHandler) ServeMainPage(w http.ResponseWriter, r *http.Request) {
 	data := struct {
-		Error string
+		Error  string
+		AppURL string // Add AppURL to the data struct
 	}{
-		Error: r.URL.Query().Get("error"), // Check for error message in query params
+		Error:  r.URL.Query().Get("error"), // Check for error message in query params
+		AppURL: h.cfg.AppURL,               // Pass AppURL from config
 	}
 	err := h.indexTemplate.Execute(w, data)
 	if err != nil {
@@ -106,11 +108,13 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 		VideoInfoJSON template.HTML
 		VideoInfo     *service.VideoInfo
 		ProgressID    string
+		AppURL        string // Add AppURL to the data struct
 	}{
 		URL:           videoURL,
 		VideoInfoJSON: template.HTML(videoInfoJSONStr),
 		VideoInfo:     &videoInfo,
 		ProgressID:    progressID,
+		AppURL:        h.cfg.AppURL, // Pass AppURL from config
 	}
 	err := h.streamTemplate.Execute(w, data)
 	if err != nil {

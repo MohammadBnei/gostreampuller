@@ -76,7 +76,7 @@
             A simple tool to fetch information, stream, or download video and audio content from various online sources.
             Powered by <code>yt-dlp</code> and <code>ffmpeg</code>.
         </p>
-        <form action="/load-info" method="post">
+        <form action="{{.AppURL}}/load-info" method="post">
             <label for="url">Enter Video/Audio URL:</label>
             <input type="text" id="url" name="url" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required>
             <button type="submit">Load Video Info</button>

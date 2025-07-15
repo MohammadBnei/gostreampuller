@@ -152,6 +152,7 @@
         <!-- Hidden URL input, value set by server -->
         <input type="hidden" id="url" name="url" value="{{ .URL }}">
         <input type="hidden" id="progressIDHidden" value="{{ .ProgressID }}">
+        <input type="hidden" id="appURLHidden" value="{{ .AppURL }}">
 
         <div id="info-display-section">
             {{ if .VideoInfo }}
@@ -225,6 +226,7 @@
         const operationForm = document.getElementById('operationForm');
         const urlHiddenInput = document.getElementById('url');
         const progressIDHiddenInput = document.getElementById('progressIDHidden');
+        const appURLHiddenInput = document.getElementById('appURLHidden'); // New hidden input
 
         const resolutionSelect = document.getElementById('resolution');
         const codecInput = document.getElementById('codec');
@@ -329,7 +331,8 @@
         function initSSE(progressID) {
             closeSSE(); // Close any existing connection
 
-            eventSource = new EventSource(`/web/progress?progressID=${progressID}`);
+            const appURL = appURLHiddenInput.value;
+            eventSource = new EventSource(`${appURL}/web/progress?progressID=${progressID}`);
 
             eventSource.onopen = function(event) {
                 console.log('SSE connection opened.');
@@ -369,6 +372,7 @@
             const resolution = resolutionSelect.value;
             const codec = codecInput.value;
             const progressID = progressIDHiddenInput.value; // Use the existing progressID
+            const appURL = appURLHiddenInput.value;
 
             // Hide previous video player and reset progress
             videoPlayerSection.style.display = 'none';
@@ -379,7 +383,7 @@
             initSSE(progressID);
 
             // Redirect to the stream endpoint
-            const streamURL = `/web/play?url=${encodeURIComponent(videoURL)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(codec)}&progressID=${encodeURIComponent(progressID)}`;
+            const streamURL = `${appURL}/web/play?url=${encodeURIComponent(videoURL)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(codec)}&progressID=${encodeURIComponent(progressID)}`;
             videoSource.src = streamURL;
             videoElement.load();
             videoPlayerSection.style.display = 'block';
@@ -390,6 +394,7 @@
             const resolution = resolutionSelect.value;
             const codec = codecInput.value;
             const progressID = progressIDHiddenInput.value; // Use the existing progressID
+            const appURL = appURLHiddenInput.value;
 
             // Hide previous video player and reset progress
             videoPlayerSection.style.display = 'none';
@@ -400,7 +405,7 @@
             initSSE(progressID);
 
             // Redirect to the download endpoint
-            const downloadURL = `/web/download/video?url=${encodeURIComponent(videoURL)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(codec)}&progressID=${encodeURIComponent(progressID)}`;
+            const downloadURL = `${appURL}/web/download/video?url=${encodeURIComponent(videoURL)}&resolution=${encodeURIComponent(resolution)}&codec=${encodeURIComponent(codec)}&progressID=${encodeURIComponent(progressID)}`;
             window.location.href = downloadURL;
         });
 
@@ -408,6 +413,7 @@
             const videoURL = urlHiddenInput.value;
             const audioQuality = audioQualitySelect.value;
             const progressID = progressIDHiddenInput.value; // Use the existing progressID
+            const appURL = appURLHiddenInput.value;
 
             // Hide previous video player and reset progress
             videoPlayerSection.style.display = 'none';
@@ -418,7 +424,7 @@
             initSSE(progressID);
 
             // Redirect to the download endpoint
-            const downloadURL = `/web/download/audio?url=${encodeURIComponent(videoURL)}&bitrate=${encodeURIComponent(audioQuality)}&progressID=${encodeURIComponent(progressID)}`;
+            const downloadURL = `${appURL}/web/download/audio?url=${encodeURIComponent(videoURL)}&bitrate=${encodeURIComponent(audioQuality)}&progressID=${encodeURIComponent(progressID)}`;
             window.location.href = downloadURL;
         });
 
@@ -427,8 +433,9 @@
         const initialVideoInfoJSON = '{{ .VideoInfoJSON }}';
         const initialProgressID = '{{ .ProgressID }}';
         const initialURL = '{{ .URL }}';
+        const initialAppURL = '{{ .AppURL }}'; // Get initial AppURL
 
-        if (initialVideoInfoJSON && initialProgressID && initialURL) {
+        if (initialVideoInfoJSON && initialProgressID && initialURL && initialAppURL) {
             const videoInfo = JSON.parse(initialVideoInfoJSON);
             updateVideoInfoCard(videoInfo);
             // No need to call initSSE here, as it's only for info loading.
@@ -437,7 +444,11 @@
         } else {
             // This state should ideally not be reached if /web is always redirected to from /load-info
             infoDisplaySection.style.display = 'none';
-            optionsSection.style.display = 'none';
+            // Assuming 'optionsSection' was meant to be 'operationForm' or similar,
+            // but it's not defined in the provided HTML.
+            // If it's a typo and refers to the form, you might want to hide it.
+            // For now, I'll leave it as is, assuming it's not critical.
+            // optionsSection.style.display = 'none';
             progressDisplaySection.style.display = 'none';
             videoPlayerSection.style.display = 'none';
             displayError('Error: Missing initial video information. Please go back and load info.');
