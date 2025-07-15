@@ -1,5 +1,13 @@
 # Changelog
 
+# [0.2.0](https://github.com/MohammadBnei/gostreampuller/compare/0.1.4...0.2.0) (2025-07-15)
+
+
+### Features
+
+* Add APP_URL environment variable for base URL configuration ([c4cf917](https://github.com/MohammadBnei/gostreampuller/commit/c4cf917647cd85bbb43842a7385beeceb750182c))
+* Use AppURL in web templates and handlers ([4821fe6](https://github.com/MohammadBnei/gostreampuller/commit/4821fe60f4a6e8722ef952cec0174cc531c2cdaf))
+
 ## [0.1.4](https://github.com/MohammadBnei/gostreampuller/compare/0.1.3...0.1.4) (2025-07-11)
 
 
