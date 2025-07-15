@@ -149,11 +149,6 @@
     <div class="container">
         <h1>GoStreamPuller - Web Stream</h1>
 
-        <!-- Hidden URL input, value set by server -->
-        <input type="hidden" id="url" name="url" value="{{ .URL }}">
-        <input type="hidden" id="progressIDHidden" value="{{ .ProgressID }}">
-        <input type="hidden" id="appURLHidden" value="{{ .AppURL }}">
-
         <div id="info-display-section">
             {{ if .VideoInfo }}
                 <div class="video-info-card">
@@ -224,8 +219,10 @@
 
     <script>
         const operationForm = document.getElementById('operationForm');
-        const urlHiddenInput = document.getElementById('url');
-        const progressIDHiddenInput = document.getElementById('progressIDHidden');
+        // Directly use templated values for JavaScript variables
+        const videoURL = `{{ .URL }}`;
+        const progressID = `{{ .ProgressID }}`;
+        const appURL = `{{ .AppURL }}`;
 
         const resolutionSelect = document.getElementById('resolution');
         const codecInput = document.getElementById('codec');
@@ -330,7 +327,6 @@
         function initSSE(progressID) {
             closeSSE(); // Close any existing connection
 
-            const appURL = appURLHiddenInput.value;
             eventSource = new EventSource(`${appURL}/web/progress?progressID=${progressID}`);
 
             eventSource.onopen = function(event) {
@@ -367,11 +363,8 @@
 
         // Event listeners for operation buttons
         streamBtn.addEventListener('click', function() {
-            const videoURL = urlHiddenInput.value;
             const resolution = resolutionSelect.value;
             const codec = codecInput.value;
-            const progressID = progressIDHiddenInput.value; // Use the existing progressID
-            const appURL = appURLHiddenInput.value;
 
             // Hide previous video player and reset progress
             videoPlayerSection.style.display = 'none';
@@ -389,11 +382,8 @@
         });
 
         downloadVideoBtn.addEventListener('click', function() {
-            const videoURL = urlHiddenInput.value;
             const resolution = resolutionSelect.value;
             const codec = codecInput.value;
-            const progressID = progressIDHiddenInput.value; // Use the existing progressID
-            const appURL = appURLHiddenInput.value;
 
             // Hide previous video player and reset progress
             videoPlayerSection.style.display = 'none';
@@ -409,10 +399,7 @@
         });
 
         downloadAudioBtn.addEventListener('click', function() {
-            const videoURL = urlHiddenInput.value;
             const audioQuality = audioQualitySelect.value;
-            const progressID = progressIDHiddenInput.value; // Use the existing progressID
-            const appURL = appURLHiddenInput.value;
 
             // Hide previous video player and reset progress
             videoPlayerSection.style.display = 'none';
@@ -429,12 +416,9 @@
 
 
         // Initial setup when stream.html is loaded
-        const initialVideoInfoJSON = '{{ .VideoInfoJSON }}';
-        const initialProgressID = '{{ .ProgressID }}';
-        const initialURL = '{{ .URL }}';
-        const initialAppURL = '{{ .AppURL }}'; // Get initial AppURL
+        const initialVideoInfoJSON = `{{ .VideoInfoJSON }}`;
 
-        if (initialVideoInfoJSON && initialProgressID && initialURL) {
+        if (initialVideoInfoJSON && progressID && videoURL) {
             const videoInfo = JSON.parse(initialVideoInfoJSON);
             updateVideoInfoCard(videoInfo);
             // No need to call initSSE here, as it's only for info loading.
