@@ -9,4 +9,4 @@ resources:
 
 images:
 - name: mohammaddocker/gostreampuller
-  newTag: 0.1.4
+  newTag: 0.2.1
