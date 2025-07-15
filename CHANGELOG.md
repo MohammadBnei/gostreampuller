@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.2.1](https://github.com/MohammadBnei/gostreampuller/compare/0.2.0...0.2.1) (2025-07-15)
+
 # [0.2.0](https://github.com/MohammadBnei/gostreampuller/compare/0.1.4...0.2.0) (2025-07-15)
 
 
