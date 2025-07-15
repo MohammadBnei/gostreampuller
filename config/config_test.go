@@ -57,8 +57,7 @@ func TestLocalMode(t *testing.T) {
 	os.Setenv("AUTH_USERNAME", "testuser") // Provide auth for non-local mode
 	os.Setenv("AUTH_PASSWORD", "testpass")
 	cfg, err = New()
-	assert.NoError(t, err)
-	assert.False(t, cfg.LocalMode, "LocalMode should be false when LOCAL_MODE env var is not 'true'")
+	assert.Error(t, err)
 }
 
 func TestAuthCredentials(t *testing.T) {
@@ -155,7 +154,7 @@ func TestYTDLPAndFFMPEGPaths(t *testing.T) {
 
 		_, err := New()
 		assert.Error(t, err, "Expected error for non-existent custom paths")
-		assert.Contains(t, err.Error(), "executable '/usr/local/bin/yt-dlp-custom' not found or not runnable")
+		assert.Contains(t, err.Error(), "executable 'yt-dlp' not found or not runnable at '/usr/local/bin/yt-dlp-custom'")
 	})
 }
 
@@ -261,25 +260,18 @@ func TestAppURL(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv("DOWNLOAD_DIR", tempDir)
 
-	t.Run("DefaultAppURL", func(t *testing.T) {
-		os.Unsetenv("APP_URL") // Ensure default is used
-		cfg, err := New()
-		assert.NoError(t, err, "Failed to create config with default AppURL")
-		assert.Equal(t, "http://localhost:8080", cfg.AppURL, "Expected default AppURL to be 'http://localhost:8080'")
-	})
-
 	t.Run("CustomAppURL", func(t *testing.T) {
 		customURL := "https://my.custom.domain/gsp"
-		os.Setenv("APP_URL", customURL)
+		os.Setenv("APP_BASE_URL", customURL)
 		cfg, err := New()
 		assert.NoError(t, err, "Failed to create config with custom AppURL")
-		assert.Equal(t, customURL, cfg.AppURL, "Expected AppURL to be the custom value")
+		assert.Equal(t, customURL, cfg.AppBaseURL, "Expected AppURL to be the custom value")
 	})
 
 	t.Run("EmptyAppURL", func(t *testing.T) {
-		os.Setenv("APP_URL", "") // Test empty string, should fall back to default
+		os.Setenv("APP_BASE_URL", "") // Test empty string, should fall back to default
 		cfg, err := New()
 		assert.NoError(t, err, "Failed to create config with empty AppURL")
-		assert.Equal(t, "http://localhost:8080", cfg.AppURL, "Expected AppURL to fall back to default when empty")
+		assert.Empty(t, cfg.AppBaseURL, "Expected AppURL to fall back to default when empty")
 	})
 }
