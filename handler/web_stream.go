@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"gostreampuller/config" // Import config package
 	"gostreampuller/service"
 	"gostreampuller/web"
 )
@@ -23,10 +24,11 @@ type WebStreamHandler struct {
 	indexTemplate   *template.Template // New template for the initial page
 	streamTemplate  *template.Template // Existing template for the streaming page
 	progressManager *service.ProgressManager
+	cfg             *config.Config // Add config to handler
 }
 
 // NewWebStreamHandler creates a new WebStreamHandler.
-func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressManager) *WebStreamHandler {
+func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressManager, cfg *config.Config) *WebStreamHandler {
 	// Use template.ParseFS to parse templates from the embedded file system
 	indexTmpl, err := template.ParseFS(web.Content, "index.html")
 	if err != nil {
@@ -43,6 +45,7 @@ func NewWebStreamHandler(downloader *service.Downloader, pm *service.ProgressMan
 		indexTemplate:   indexTmpl,
 		streamTemplate:  streamTmpl,
 		progressManager: pm,
+		cfg:             cfg, // Store config
 	}
 }
 
@@ -131,14 +134,14 @@ func (h *WebStreamHandler) ServeStreamPage(w http.ResponseWriter, r *http.Reques
 func (h *WebStreamHandler) HandleLoadInfo(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		slog.Error("Failed to parse form data", "error", err)
-		http.Redirect(w, r, "/?error="+url.QueryEscape("Bad Request: Could not parse form"), http.StatusFound)
+		http.Redirect(w, r, h.cfg.AppURL+"/?error="+url.QueryEscape("Bad Request: Could not parse form"), http.StatusFound)
 		return
 	}
 
 	videoURL := r.FormValue("url")
 	if videoURL == "" {
 		slog.Error("Missing URL in load info request")
-		http.Redirect(w, r, "/?error="+url.QueryEscape("URL is required"), http.StatusFound)
+		http.Redirect(w, r, h.cfg.AppURL+"/?error="+url.QueryEscape("URL is required"), http.StatusFound)
 		return
 	}
 
@@ -150,7 +153,7 @@ func (h *WebStreamHandler) HandleLoadInfo(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		slog.Error("Failed to get video info for web interface", "error", err, "url", videoURL)
 		// Error event already sent by downloader.GetVideoInfo
-		http.Redirect(w, r, "/?error="+url.QueryEscape(fmt.Sprintf("Failed to get video information: %v", err)), http.StatusFound)
+		http.Redirect(w, r, h.cfg.AppURL+"/?error="+url.QueryEscape(fmt.Sprintf("Failed to get video information: %v", err)), http.StatusFound)
 		return
 	}
 
@@ -158,12 +161,13 @@ func (h *WebStreamHandler) HandleLoadInfo(w http.ResponseWriter, r *http.Request
 	videoInfoJSON, err := json.Marshal(videoInfo)
 	if err != nil {
 		slog.Error("Failed to marshal video info to JSON for redirect", "error", err)
-		http.Redirect(w, r, "/?error="+url.QueryEscape("Internal server error: Failed to process video info"), http.StatusFound)
+		http.Redirect(w, r, h.cfg.AppURL+"/?error="+url.QueryEscape("Internal server error: Failed to process video info"), http.StatusFound)
 		return
 	}
 
 	// Construct the redirect URL with all necessary parameters
-	redirectURL := fmt.Sprintf("/web?url=%s&progressID=%s&videoInfo=%s",
+	redirectURL := fmt.Sprintf("%s/web?url=%s&progressID=%s&videoInfo=%s",
+		h.cfg.AppURL, // Use AppURL here
 		url.QueryEscape(videoURL),
 		url.QueryEscape(progressID),
 		url.QueryEscape(string(videoInfoJSON)),

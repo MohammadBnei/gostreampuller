@@ -54,6 +54,7 @@ func main() {
 		if cfg.LocalMode {
 			slog.Warn("LOCAL_MODE enabled: Authentication is bypassed")
 		}
+		slog.Info(fmt.Sprintf("Application URL set to: %s", cfg.AppURL))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Server failed to listen", "error", err)
 			os.Exit(1) // Exit if server fails to start

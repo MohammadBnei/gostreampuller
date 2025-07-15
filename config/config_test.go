@@ -16,6 +16,7 @@ func TestLocalMode(t *testing.T) {
 	originalYTDLPPath := os.Getenv("YTDLP_PATH")
 	originalFFMPEGPath := os.Getenv("FFMPEG_PATH")
 	originalDownloadDir := os.Getenv("DOWNLOAD_DIR")
+	originalAppURL := os.Getenv("APP_URL") // Save AppURL
 
 	defer func() {
 		os.Setenv("LOCAL_MODE", originalLocalMode)
@@ -24,6 +25,7 @@ func TestLocalMode(t *testing.T) {
 		os.Setenv("YTDLP_PATH", originalYTDLPPath)
 		os.Setenv("FFMPEG_PATH", originalFFMPEGPath)
 		os.Setenv("DOWNLOAD_DIR", originalDownloadDir)
+		os.Setenv("APP_URL", originalAppURL) // Restore AppURL
 	}()
 
 	// Set auth credentials for non-local mode tests
@@ -32,6 +34,8 @@ func TestLocalMode(t *testing.T) {
 	// Set dummy paths for executables to pass checks
 	os.Setenv("YTDLP_PATH", "echo")
 	os.Setenv("FFMPEG_PATH", "echo")
+	// Set a dummy AppURL
+	os.Setenv("APP_URL", "http://test.com")
 
 	// Test when LOCAL_MODE is not set
 	os.Unsetenv("LOCAL_MODE")
@@ -60,6 +64,8 @@ func TestAuthCredentials(t *testing.T) {
 	// Set dummy paths for executables to pass checks
 	t.Setenv("YTDLP_PATH", "echo")
 	t.Setenv("FFMPEG_PATH", "echo")
+	// Set a dummy AppURL
+	t.Setenv("APP_URL", "http://test.com")
 
 	// Test missing username in non-local mode
 	t.Setenv("AUTH_PASSWORD", "testpass")
@@ -90,12 +96,14 @@ func TestYTDLPAndFFMPEGPaths(t *testing.T) {
 	originalFFMPEGPath := os.Getenv("FFMPEG_PATH")
 	originalLocalMode := os.Getenv("LOCAL_MODE")
 	originalDownloadDir := os.Getenv("DOWNLOAD_DIR")
+	originalAppURL := os.Getenv("APP_URL") // Save AppURL
 
 	defer func() {
 		os.Setenv("YTDLP_PATH", originalYTDLPPath)
 		os.Setenv("FFMPEG_PATH", originalFFMPEGPath)
 		os.Setenv("LOCAL_MODE", originalLocalMode)
 		os.Setenv("DOWNLOAD_DIR", originalDownloadDir)
+		os.Setenv("APP_URL", originalAppURL) // Restore AppURL
 	}()
 
 	// Set local mode to bypass auth for these tests
@@ -103,6 +111,8 @@ func TestYTDLPAndFFMPEGPaths(t *testing.T) {
 	// Set a temporary download directory for these tests
 	tempDir := t.TempDir()
 	os.Setenv("DOWNLOAD_DIR", tempDir)
+	// Set a dummy AppURL
+	os.Setenv("APP_URL", "http://test.com")
 
 	// Test default values
 	t.Run("DefaultPaths", func(t *testing.T) {
@@ -132,12 +142,14 @@ func TestDownloadDir(t *testing.T) {
 	originalYTDLPPath := os.Getenv("YTDLP_PATH")
 	originalFFMPEGPath := os.Getenv("FFMPEG_PATH")
 	originalDownloadDir := os.Getenv("DOWNLOAD_DIR")
+	originalAppURL := os.Getenv("APP_URL") // Save AppURL
 
 	defer func() {
 		os.Setenv("LOCAL_MODE", originalLocalMode)
 		os.Setenv("YTDLP_PATH", originalYTDLPPath)
 		os.Setenv("FFMPEG_PATH", originalFFMPEGPath)
 		os.Setenv("DOWNLOAD_DIR", originalDownloadDir)
+		os.Setenv("APP_URL", originalAppURL) // Restore AppURL
 	}()
 
 	// Set local mode to bypass auth for these tests
@@ -145,6 +157,8 @@ func TestDownloadDir(t *testing.T) {
 	// Set dummy paths for executables to pass checks
 	os.Setenv("YTDLP_PATH", "echo")
 	os.Setenv("FFMPEG_PATH", "echo")
+	// Set a dummy AppURL
+	os.Setenv("APP_URL", "http://test.com")
 
 	t.Run("DefaultDownloadDir", func(t *testing.T) {
 		os.Unsetenv("DOWNLOAD_DIR") // Ensure default is used
@@ -188,5 +202,53 @@ func TestDownloadDir(t *testing.T) {
 		_, err := New()
 		assert.Error(t, err, "Expected an error for an invalid/unwritable download directory")
 		assert.Contains(t, err.Error(), "failed to create download directory", "Error message should indicate directory creation/write issue")
+	})
+}
+
+func TestAppURL(t *testing.T) {
+	// Save original env vars to restore later
+	originalLocalMode := os.Getenv("LOCAL_MODE")
+	originalYTDLPPath := os.Getenv("YTDLP_PATH")
+	originalFFMPEGPath := os.Getenv("FFMPEG_PATH")
+	originalDownloadDir := os.Getenv("DOWNLOAD_DIR")
+	originalAppURL := os.Getenv("APP_URL")
+
+	defer func() {
+		os.Setenv("LOCAL_MODE", originalLocalMode)
+		os.Setenv("YTDLP_PATH", originalYTDLPPath)
+		os.Setenv("FFMPEG_PATH", originalFFMPEGPath)
+		os.Setenv("DOWNLOAD_DIR", originalDownloadDir)
+		os.Setenv("APP_URL", originalAppURL)
+	}()
+
+	// Set local mode to bypass auth for these tests
+	os.Setenv("LOCAL_MODE", "true")
+	// Set dummy paths for executables to pass checks
+	os.Setenv("YTDLP_PATH", "echo")
+	os.Setenv("FFMPEG_PATH", "echo")
+	// Set a temporary download directory for these tests
+	tempDir := t.TempDir()
+	os.Setenv("DOWNLOAD_DIR", tempDir)
+
+	t.Run("DefaultAppURL", func(t *testing.T) {
+		os.Unsetenv("APP_URL") // Ensure default is used
+		cfg, err := New()
+		assert.NoError(t, err, "Failed to create config with default AppURL")
+		assert.Equal(t, "http://localhost:8080", cfg.AppURL, "Expected default AppURL to be 'http://localhost:8080'")
+	})
+
+	t.Run("CustomAppURL", func(t *testing.T) {
+		customURL := "https://my.custom.domain/gsp"
+		os.Setenv("APP_URL", customURL)
+		cfg, err := New()
+		assert.NoError(t, err, "Failed to create config with custom AppURL")
+		assert.Equal(t, customURL, cfg.AppURL, "Expected AppURL to be the custom value")
+	})
+
+	t.Run("EmptyAppURL", func(t *testing.T) {
+		os.Setenv("APP_URL", "") // Test empty string, should fall back to default
+		cfg, err := New()
+		assert.NoError(t, err, "Failed to create config with empty AppURL")
+		assert.Equal(t, "http://localhost:8080", cfg.AppURL, "Expected AppURL to fall back to default when empty")
 	})
 }

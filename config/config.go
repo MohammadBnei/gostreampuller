@@ -21,6 +21,7 @@ type Config struct {
 	YTDLPPath    string `env:"YTDLP_PATH" default:"yt-dlp"`
 	FFMPEGPath   string `env:"FFMPEG_PATH" default:"ffmpeg"`
 	DownloadDir  string `env:"DOWNLOAD_DIR" default:"./data"` // Directory to store downloaded files
+	AppURL       string `env:"APP_URL" default:"http://localhost:8080"` // Base URL of the application for redirects and external links
 }
 
 // New creates a new Config with values from environment variables.
