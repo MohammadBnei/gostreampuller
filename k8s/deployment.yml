@@ -22,7 +22,7 @@ spec:
             - containerPort: 3000
           resources:
             limits:
-              cpu: 400Mi
+              cpu: 800m
               memory: 500Mi
           env:  
             - name: PORT
